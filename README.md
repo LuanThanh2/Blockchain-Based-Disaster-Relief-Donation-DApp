@@ -72,12 +72,22 @@ Test nhanh:
 curl http://127.0.0.1:8000/health
 ```
 
-Mot so viec can lam 
-Tạo chiến dịch gây quỹ (campaign): tiêu đề, mô tả, mục tiêu (
-goal
-goal), thời hạn/trạng thái.
-Nhận quyên góp (donate): người dùng gửi ETH vào campaign, ghi nhận giao dịch + cập nhật tổng tiền.
-Theo dõi/hiển thị tiến độ: xem số tiền đã nhận, số người donate, lịch sử donate.
-Giải ngân/rút tiền (withdraw): người quản lý rút tiền theo rule (toàn bộ/1 phần), ghi nhận on-chain.
-Quản lý campaign: bật/tắt campaign, cập nhật thông tin (nếu cho phép), đóng campaign.
-Báo cáo & minh bạch: xuất danh sách giao dịch, tổng thu/chi theo campaign, log sự kiện (events).
+🛠️ Một số việc cần làm
+
+Tạo chiến dịch gây quỹ (Campaign)
+Tạo campaign với tiêu đề, mô tả, mục tiêu gây quỹ (goal), thời hạn và trạng thái hoạt động.
+
+Nhận quyên góp (Donate)
+Người dùng gửi ETH vào campaign; giao dịch được ghi nhận on-chain và tự động cập nhật tổng số tiền quyên góp.
+
+Theo dõi & hiển thị tiến độ
+Xem số tiền đã nhận, số lượng người quyên góp và lịch sử các giao dịch donate.
+
+Giải ngân / rút tiền (Withdraw)
+Người quản lý campaign rút tiền theo rule của smart contract (rút toàn bộ hoặc từng phần); mọi giao dịch đều được ghi nhận on-chain.
+
+Quản lý campaign
+Bật/tắt campaign, cập nhật thông tin (nếu được cho phép) và đóng campaign khi hoàn thành.
+
+Báo cáo & minh bạch
+Xuất danh sách giao dịch, tổng thu/chi theo từng campaign và theo dõi log sự kiện (events) từ smart contract.
