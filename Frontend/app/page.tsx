@@ -18,7 +18,6 @@ import {
   Eye,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { templeService } from "./services/templeService";
 
 interface ApiError {
   message: string;
@@ -105,10 +104,10 @@ export default function Home(){
                 How It Works
               </a>
               <a
-                href="/temples"
+                href="/reliefs"
                 className="text-gray-700 hover:text-orange-600 transition-colors"
               >
-                Temples
+                Reliefs
               </a>
               <a
                 href="#contact"
@@ -151,11 +150,11 @@ export default function Home(){
               How It Works
             </a>
             <a
-              href="#temples"
+              href="/reliefs"
               className="text-gray-700 hover:text-orange-600"
               onClick={() => setIsMenuOpen(false)}
             >
-              Temples
+              Reliefs
             </a>
             <a
               href="#contact"
@@ -183,16 +182,18 @@ export default function Home(){
                 Revolutionizing
               </span>
               <br />
-              Temple Fund Management
+              Relief Fund Management
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-8">
               Transparent, secure, and decentralized donation management system
-              for Indian temples using blockchain technology
+              for relief efforts using blockchain technology
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 cursor-pointer rounded-full text-lg font-semibold hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center"
-              onClick={() => router.push("/user/donate")}>
-                Start Donating <ArrowRight className="ml-2" size={20} />
+              <button
+                className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 cursor-pointer rounded-full text-lg font-semibold hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center"
+                onClick={() => router.push("/reliefs")}
+              >
+                Explore Reliefs <ArrowRight className="ml-2" size={20} />
               </button>
               <button className="border-2 border-orange-500 text-orange-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-orange-50 transition-all">
                 Watch Demo
@@ -210,7 +211,7 @@ export default function Home(){
               <div className="text-4xl font-bold text-orange-600">
                 {loading ? "..." : temples.length}+
               </div>
-              <div className="text-gray-600 mt-2">Temples Connected</div>
+              <div className="text-gray-600 mt-2">Reliefs Supported</div>
             </div>
             <div className="transform hover:scale-105 transition-all">
               <div className="text-4xl font-bold text-red-600">₹50L+</div>

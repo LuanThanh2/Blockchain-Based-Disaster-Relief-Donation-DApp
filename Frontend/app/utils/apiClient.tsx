@@ -15,10 +15,10 @@ export const apiClient = async (
         }
 
         // Add the access token to the headers
-        const headers: Record<string, string> = {
-            ...options.headers,
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        };
+        const headers = new Headers(options.headers);
+        if (accessToken) {
+            headers.set("Authorization", `Bearer ${accessToken}`);
+        }
 
         let response = await fetch(url, { ...options, headers });
 
@@ -41,10 +41,8 @@ export const apiClient = async (
             }
 
             // Retry the original request with the new access token
-            const retryHeaders: Record<string, string> = {
-                ...options.headers,
-                Authorization: `Bearer ${accessToken}`,
-            };
+            const retryHeaders = new Headers(options.headers);
+            retryHeaders.set("Authorization", `Bearer ${accessToken}`);
 
             response = await fetch(url, { ...options, headers: retryHeaders });
         }

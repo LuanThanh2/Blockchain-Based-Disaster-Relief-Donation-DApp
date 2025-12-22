@@ -32,45 +32,198 @@ Các file trong `scripts/` là các script chạy bằng Hardhat
 
 ## Setup & Run (Windows)
 
-### 1) Hardhat
+> Gợi ý: mở **4 terminal** (Hardhat / Deploy / Backend / Frontend) để chạy mượt.
+
+### Yêu cầu trước khi chạy
+
+- Node.js (khuyến nghị LTS) + npm
+- Python 3.10+ (để chạy FastAPI)
+
+Thư mục quan trọng:
+
+- Hardhat + scripts: `E:\Disaster_Relief_Dapp\` (root)
+- Backend (FastAPI): `E:\Disaster_Relief_Dapp\backend\`
+- Frontend (Next.js): `E:\Disaster_Relief_Dapp\Frontend\`
+
+---
+
+## Cách 1: Chạy LOCAL (khuyến nghị để dev/test nhanh)
+
+### Bước 0 — Cài dependencies (chạy 1 lần)
 
 ```cmd
 cd /d E:\Disaster_Relief_Dapp
 npm install
-npx hardhat compile
+
+cd /d E:\Disaster_Relief_Dapp\Frontend
+npm install
 ```
 
-Deploy lên Sepolia:
+- `npm install`: tải thư viện Node theo `package.json`.
+
+### Bước 1 — Terminal A: chạy blockchain local (Hardhat)
 
 ```cmd
 cd /d E:\Disaster_Relief_Dapp
-npx hardhat run scripts\deploy_disaster_fund.js --network sepolia
+npx hardhat node
 ```
 
-Sau khi deploy, copy địa chỉ in ra và cập nhật `DISASTER_FUND_ADDRESS` trong `.env`.
+- `npx hardhat node`: bật một blockchain giả lập trên máy (thường RPC `http://127.0.0.1:8545`) + tạo sẵn nhiều account có ETH để test.
+- **Giữ terminal này chạy** trong suốt quá trình dev.
 
-### 2) Backend (FastAPI)
+### Bước 2 — Terminal B: compile + deploy contract lên local chain
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp
+npx hardhat compile
+npx hardhat run scripts\deploy_disaster_fund.js --network localhost
+```
+
+- `npx hardhat compile`: biên dịch Solidity → ABI/bytecode.
+- `npx hardhat run ... --network localhost`: deploy contract lên Hardhat node.
+
+Sau khi deploy, bạn sẽ thấy **địa chỉ contract** in ra. Copy lại để điền vào backend `.env`.
+
+### Bước 3 — Cấu hình backend `.env` (LOCAL)
+
+Tạo file `E:\Disaster_Relief_Dapp\backend\.env` (nếu chưa có) với tối thiểu:
+
+```dotenv
+CHAIN_ID=31337
+RPC_URL=http://127.0.0.1:8545
+
+# Lấy PRIVATE_KEY từ Terminal A (hardhat node) — account có sẵn ETH
+PRIVATE_KEY=0x...
+
+# Dán địa chỉ contract sau khi deploy ở Bước 2
+DISASTER_FUND_ADDRESS=0x...
+```
+
+### Bước 4 — Terminal C: chạy Backend (FastAPI)
+
+Tạo venv + cài requirements (chạy 1 lần):
 
 ```cmd
 cd /d E:\Disaster_Relief_Dapp\backend
 python -m venv .venv
-.venv\Scripts\activate.bat
+call .venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
 Chạy API:
 
 ```cmd
-cd /d E:\Disaster_Relief_Dapp
-call backend\.venv\Scripts\activate.bat
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+cd /d E:\Disaster_Relief_Dapp\backend
+call .venv\Scripts\activate.bat
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+- `python -m venv .venv`: tạo môi trường Python riêng cho backend.
+- `pip install -r requirements.txt`: cài FastAPI/web3/uvicorn...
+- `uvicorn main:app --reload`: chạy API tại `http://127.0.0.1:8000` và tự reload khi sửa code.
 
 Test nhanh:
 
 ```cmd
 curl http://127.0.0.1:8000/health
 ```
+
+### Bước 5 — Terminal D: chạy Frontend (Next.js)
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp\Frontend
+npm run dev
+```
+
+- `npm run dev`: chạy Next.js dev server tại `http://localhost:3000`.
+
+Mở UI:
+
+- Trang tạo campaign: `http://localhost:3000/reliefadmin/create-campaign`
+
+---
+
+## Cách 2: Deploy & chạy trên SEPOLIA (testnet)
+
+### Bước 0 — Cài dependencies (chạy 1 lần)
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp
+npm install
+```
+
+### Bước 1 — Cấu hình `.env` cho Hardhat (SEPOLIA)
+
+Tạo/điền `E:\Disaster_Relief_Dapp\.env` (Hardhat sẽ tự load cả `.env` root và `backend\.env`):
+
+```dotenv
+SEPOLIA_RPC_URL=https://...
+DEPLOYER_PRIVATE_KEY=0x...
+
+# (tuỳ chọn) để Hardhat kiểm tra PK có khớp địa chỉ mong muốn
+EXPECTED_DEPLOYER_ADDRESS=0x...
+```
+
+### Bước 2 — Compile + deploy lên Sepolia
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp
+npx hardhat compile
+npx hardhat run scripts\deploy_disaster_fund.js --network sepolia
+```
+
+### Bước 3 — Cấu hình backend `.env` trỏ Sepolia
+
+Sửa `E:\Disaster_Relief_Dapp\backend\.env`:
+
+```dotenv
+CHAIN_ID=11155111
+RPC_URL=https://...
+PRIVATE_KEY=0x...
+DISASTER_FUND_ADDRESS=0x...   # địa chỉ contract Sepolia vừa deploy
+```
+
+### Bước 4 — Chạy Backend + Frontend
+
+Backend:
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp\backend
+call .venv\Scripts\activate.bat
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Frontend:
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp\Frontend
+npm run dev
+```
+
+---
+
+## Lệnh/script hữu ích
+
+```cmd
+cd /d E:\Disaster_Relief_Dapp
+
+:: In địa chỉ deployer + số dư
+npx hardhat run scripts\check_deployer_balance.js --network sepolia
+
+:: In địa chỉ từ private key
+npx hardhat run scripts\print_address_from_pk.js --network sepolia
+
+:: Kiểm tra account (balance/nonce/code)
+npx hardhat run scripts\inspect_account.js --network sepolia
+```
+
+---
+
+## Troubleshooting nhanh
+
+- Nếu mở `http://localhost:3000` bị `ERR_CONNECTION_REFUSED`: frontend chưa chạy → chạy `npm run dev` trong `Frontend`.
+- Nếu backend báo thiếu biến môi trường: kiểm tra `backend\.env` có đủ `RPC_URL`, `PRIVATE_KEY`, `DISASTER_FUND_ADDRESS`.
+- Nếu frontend gặp lỗi storage (`localStorage...`): project đã có `Frontend\instrumentation.ts` để tránh crash trong dev.
 
 🛠️ Một số việc cần làm
 
@@ -91,3 +244,4 @@ Bật/tắt campaign, cập nhật thông tin (nếu được cho phép) và đ�
 
 Báo cáo & minh bạch
 Xuất danh sách giao dịch, tổng thu/chi theo từng campaign và theo dõi log sự kiện (events) từ smart contract.
+
