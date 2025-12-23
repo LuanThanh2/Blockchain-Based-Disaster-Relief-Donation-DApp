@@ -28,3 +28,25 @@ ignition/deployments/chain-31337
 README2.md
 
 delete/
+
+# Next.js
+Frontend/.next/
+Frontend/out/
+Frontend/build/
+
+# Database
+backend/dev.db
+backend/dev.db.backup.*
+backend/*.db
+backend/*.db-journal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
