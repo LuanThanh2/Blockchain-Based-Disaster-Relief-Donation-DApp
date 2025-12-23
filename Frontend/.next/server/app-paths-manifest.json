@@ -1,5 +1,6 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
+  "/reliefadmin/dashboard/page": "app/reliefadmin/dashboard/page.js",
   "/reliefadmin/create-campaign/page": "app/reliefadmin/create-campaign/page.js",
-  "/reliefadmin/dashboard/page": "app/reliefadmin/dashboard/page.js"
+  "/reliefs/[slug]/page": "app/reliefs/[slug]/page.js",
+  "/reliefs/page": "app/reliefs/page.js"
 }

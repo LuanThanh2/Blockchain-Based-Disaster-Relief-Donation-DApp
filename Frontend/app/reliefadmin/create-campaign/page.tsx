@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const API_URL = (process?.env?.NEXT_PUBLIC_API_URL as string) || "http://localhost:5050";
+const API_URL = (process?.env?.NEXT_PUBLIC_API_URL as string) || (process?.env?.NEXT_PUBLIC_API_BASE_URL as string) || "http://127.0.0.1:8000";
 
 type FormState = {
   title: string;
