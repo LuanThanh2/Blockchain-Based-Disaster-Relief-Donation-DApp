@@ -1,43 +1,54 @@
-import { notFound } from "next/navigation";
+"use client";
 
-type Params = {
-  params: {
-    slug: string;
-  };
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+
+type Campaign = {
+  id: number;
+  title: string;
+  description: string;
+  target_amount: string;
+  deadline: string;
+  beneficiary: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export default function CampaignDetailPage() {
+  const params = useParams();
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
 
-export default async function Page({ params }: Params) {
-  const id = params.slug;
+  useEffect(() => {
+    async function fetchCampaign() {
+      try {
+        const res = await fetch(`/api/campaigns/${params.slug}`);
+        const data = await res.json();
+        setCampaign(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchCampaign();
+  }, [params.slug]);
 
-  try {
-    const res = await fetch(`${API_BASE}/api/v1/campaigns/${id}`, { cache: "no-store" });
-    if (!res.ok) return notFound();
-    const data = await res.json();
+  if (!campaign) return <div className="text-center mt-10">Loading campaign...</div>;
 
-    return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <div className="mx-auto max-w-4xl bg-white rounded-lg p-6">
-          <h1 className="text-2xl font-bold">{data.title}</h1>
-          <p className="text-sm text-slate-600 mt-2">{data.short_desc}</p>
+  return (
+    <div className="mx-auto max-w-3xl p-6 bg-white/5 rounded-3xl backdrop-blur border border-white/10 shadow-lg">
+      <h1 className="text-2xl font-bold mb-3">{campaign.title}</h1>
+      <p className="text-gray-300 mb-4">{campaign.description}</p>
 
-          <div className="mt-4">
-            <div className="text-sm text-slate-700">Target: {data.target_amount} {data.currency}</div>
-            <div className="text-sm text-slate-700">Beneficiary: <code>{data.beneficiary}</code></div>
-            {data.contract_tx_hash && (
-              <div className="mt-2 text-xs">Tx: <a className="underline" target="_blank" rel="noreferrer" href={`https://sepolia.etherscan.io/tx/${data.contract_tx_hash}`}>{data.contract_tx_hash}</a></div>
-            )}
-          </div>
-
-          <div className="mt-6">
-            <h3 className="font-semibold">Description</h3>
-            <div className="mt-2 text-sm text-slate-700 whitespace-pre-line">{data.description}</div>
-          </div>
-        </div>
+      <div className="flex gap-4 mb-4 text-sm text-gray-400">
+        <span>🎯 Target: {campaign.target_amount} ETH</span>
+        <span>⏰ Deadline: {campaign.deadline}</span>
+        <span>👤 Beneficiary: {campaign.beneficiary}</span>
       </div>
-    );
-  } catch (err) {
-    return notFound();
-  }
+
+      <Link
+        href="/user/donate"
+        className="inline-block rounded-xl px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold hover:opacity-90 transition"
+      >
+        Donate Now
+      </Link>
+    </div>
+  );
 }
