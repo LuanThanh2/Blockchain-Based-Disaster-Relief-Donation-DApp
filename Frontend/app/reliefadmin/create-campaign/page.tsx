@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL =
-  (process?.env?.NEXT_PUBLIC_API_URL as string) ||
-  (process?.env?.NEXT_PUBLIC_API_BASE_URL as string) ||
+  process?.env?.NEXT_PUBLIC_API_URL ||
+  process?.env?.NEXT_PUBLIC_API_BASE_URL ||
   "http://127.0.0.1:8000";
 
 type FormState = {
@@ -30,32 +30,6 @@ function Spinner() {
   );
 }
 
-// ===== Field Component =====
-function Field({
-  label,
-  hint,
-  error,
-  required,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-white">
-        {label} {required && "*"}
-      </label>
-      {hint && <div className="text-xs text-gray-300">{hint}</div>}
-      {children}
-      {error && <div className="text-xs text-red-400">{error}</div>}
-    </div>
-  );
-}
-
 // ===== Page Component =====
 export default function CreateCampaignPage() {
   const router = useRouter();
@@ -76,12 +50,9 @@ export default function CreateCampaignPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [serverErrorDetails, setServerErrorDetails] = useState<any>(null);
   const [campaignId, setCampaignId] = useState<number | null>(null);
   const [onchainId, setOnchainId] = useState<number | null>(null);
-  const [onchainStatus, setOnchainStatus] = useState<
-    "idle" | "pending" | "done"
-  >("idle");
+  const [onchainStatus, setOnchainStatus] = useState<"idle" | "pending" | "done">("idle");
 
   const isImageUrlValid = useMemo(() => {
     if (!form.image_url.trim()) return true;
@@ -117,11 +88,7 @@ export default function CreateCampaignPage() {
   ) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-
-    setForm((s) => ({
-      ...s,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setForm((s) => ({ ...s, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,7 +107,6 @@ export default function CreateCampaignPage() {
     }
 
     setLoading(true);
-
     try {
       const payload = {
         title: form.title.trim(),
@@ -164,20 +130,17 @@ export default function CreateCampaignPage() {
         let msg = `HTTP ${res.status}`;
         try {
           const data = await res.json();
-          setServerErrorDetails(data);
           msg = data?.detail || data?.error || JSON.stringify(data);
         } catch {}
         throw new Error(msg);
       }
 
       const data = await res.json();
-      setServerErrorDetails(null);
       setCampaignId(data?.id ?? null);
       setTxHash(data?.contract_tx_hash || data?.txHash || null);
       setOnchainId(data?.onchain_id ?? null);
       setSuccess(true);
 
-      // Poll for on-chain status if needed
       if (form.createOnChain && data?.id) {
         setOnchainStatus("pending");
         const startedAt = Date.now();
@@ -207,7 +170,6 @@ export default function CreateCampaignPage() {
     }
   };
 
-  // Redirect after success
   useEffect(() => {
     if (!success) return;
     const t = setTimeout(() => router.push("/reliefadmin/dashboard"), 3000);
@@ -215,80 +177,77 @@ export default function CreateCampaignPage() {
   }, [success, router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 text-white">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 text-white py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Tạo Campaign
-            </h1>
-            <p className="mt-2 text-sm text-gray-300">
-              Điền thông tin cơ bản, đặt mục tiêu gây quỹ và (tuỳ chọn) tạo on-chain qua backend deployer.
+            <h1 className="text-3xl font-semibold tracking-tight">Tạo Campaign</h1>
+            <p className="mt-2 text-gray-300 text-sm">
+              Điền thông tin cơ bản, đặt mục tiêu gây quỹ và (tuỳ chọn) tạo on-chain.
             </p>
           </div>
-
           <button
             onClick={() => router.push("/reliefadmin/dashboard")}
-            className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-white/20 backdrop-blur"
+            className="btn border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium shadow-sm backdrop-blur hover:bg-white/20"
           >
             Về Dashboard
           </button>
         </div>
 
-        {/* Main Grid */}
-        <div className="grid gap-8 lg:grid-cols-[1.2fr,0.8fr]">
+{/* Main Grid: Form + Preview */}
+<div className="grid lg:grid-cols-[1.2fr,0.8fr] gap-8">
           {/* Form */}
-          <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
-            {success && <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">✅ Tạo campaign thành công</div>}
+            {success && <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">✅ Tạo campaign thành công! Chuyển hướng dashboard...</div>}
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <Field label="Tiêu đề" hint="Ngắn gọn, rõ ràng." required>
-                <input name="title" value={form.title} onChange={handleChange} className="input" placeholder="Ví dụ: Hỗ trợ đồng bào vùng lũ" aria-label="Tiêu đề"/>
-              </Field>
+            <div className="grid grid-cols-3 gap-4 items-start">
+              {/* Fields */}
+              <div className="text-sm font-medium">Tiêu đề</div>
+              <div className="text-xs text-gray-300">Ngắn gọn, rõ ràng.</div>
+              <input name="title" value={form.title} onChange={handleChange} className="input" placeholder="Ví dụ: Hỗ trợ đồng bào vùng lũ" />
 
-              <Field label="Mục tiêu (ETH)" hint="Số tiền cần gây quỹ." required>
-                <input name="target_amount" value={form.target_amount} onChange={handleChange} className="input" placeholder="Ví dụ: 1.5" inputMode="decimal" aria-label="Mục tiêu (ETH)"/>
-              </Field>
+              <div className="text-sm font-medium">Mục tiêu (ETH)</div>
+              <div className="text-xs text-gray-300">Số tiền cần gây quỹ.</div>
+              <input name="target_amount" value={form.target_amount} onChange={handleChange} className="input" placeholder="1.5" inputMode="decimal" />
 
-              <Field label="Mô tả ngắn" hint="1–2 câu tóm tắt để hiển thị ở danh sách." required>
-                <input name="short_desc" value={form.short_desc} onChange={handleChange} className="input" placeholder="Ví dụ: Gây quỹ khẩn cấp cho nhu yếu phẩm" aria-label="Mô tả ngắn"/>
-              </Field>
+              <div className="text-sm font-medium">Mô tả ngắn</div>
+              <div className="text-xs text-gray-300">Hiển thị danh sách.</div>
+              <input name="short_desc" value={form.short_desc} onChange={handleChange} className="input" placeholder="Ví dụ: Gây quỹ khẩn cấp" />
 
-              <Field label="Deadline" hint="Ngày kết thúc (YYYY-MM-DD)." required>
-                <input name="deadline" type="date" value={form.deadline} onChange={handleChange} className="input" aria-label="Deadline"/>
-              </Field>
+              <div className="text-sm font-medium">Deadline</div>
+              <div className="text-xs text-gray-300">YYYY-MM-DD</div>
+              <input name="deadline" type="date" value={form.deadline} onChange={handleChange} className="input" />
 
-              <Field label="Mô tả chi tiết" hint="Nêu rõ mục tiêu, phạm vi hỗ trợ, cách sử dụng quỹ." required>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={6} className="textarea" aria-label="Mô tả chi tiết"/>
-              </Field>
+              <div className="text-sm font-medium">Mô tả chi tiết</div>
+              <div className="text-xs text-gray-300">Nêu rõ mục tiêu, phạm vi hỗ trợ.</div>
+              <textarea name="description" value={form.description} onChange={handleChange} rows={4} className="textarea" />
 
-              <Field label="Ảnh cover (URL)" error={!isImageUrlValid ? "URL không hợp lệ" : undefined}>
-                <input name="image_url" value={form.image_url} onChange={handleChange} placeholder="https://..." className="input" aria-label="Ảnh cover (URL)"/>
-              </Field>
+              <div className="text-sm font-medium">Ảnh cover (URL)</div>
+              <div className="text-xs text-gray-300">Đường link ảnh.</div>
+              <input name="image_url" value={form.image_url} onChange={handleChange} className="input" placeholder="https://..." />
 
-              <Field label="Beneficiary (ví nhận)" hint="Địa chỉ 0x... (40 hex)." required>
-                <input name="beneficiary" value={form.beneficiary} onChange={handleChange} placeholder="0x..." className="input font-mono" aria-label="Beneficiary (ví nhận)"/>
-              </Field>
-            </div>
+              <div className="text-sm font-medium">Beneficiary</div>
+              <div className="text-xs text-gray-300">Địa chỉ 0x...</div>
+              <input name="beneficiary" value={form.beneficiary} onChange={handleChange} className="input font-mono" />
 
-            {/* On-chain toggle */}
-            <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div>
-                <div className="text-sm font-medium text-white">Tạo on-chain</div>
-                <div className="mt-1 text-xs text-gray-300">
-                  Nếu bật, backend sẽ gửi tx tạo campaign trên contract (chạy background).
-                </div>
-              </div>
-
-              <label className="inline-flex cursor-pointer items-center gap-3">
-                <input type="checkbox" name="createOnChain" checked={form.createOnChain} onChange={handleChange} className="h-5 w-5 rounded border-white/20 bg-transparent"/>
-                <span className="text-sm font-medium text-white">{form.createOnChain ? "Bật" : "Tắt"}</span>
+              {/* On-chain toggle */}
+              <div className="text-sm font-medium">Tạo on-chain</div>
+              <div className="text-xs text-gray-300">Nếu bật, backend gửi tx tạo campaign.</div>
+              <label className="inline-flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="createOnChain" checked={form.createOnChain} onChange={handleChange} className="h-5 w-5 rounded border-white/20 bg-transparent" />
+                <span className="text-sm">{form.createOnChain ? "Bật" : "Tắt"}</span>
               </label>
             </div>
 
-            <button type="submit" disabled={!canSubmit} className={`w-full rounded-2xl px-5 py-3 text-sm font-semibold transition ${canSubmit ? "bg-gradient-to-r from-indigo-600 to-purple-700 text-white hover:scale-[1.02]" : "cursor-not-allowed bg-gray-600 text-gray-400"}`}>
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className={`w-full rounded-3xl px-6 py-3 text-sm font-bold uppercase transition-all duration-200
+                ${canSubmit ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg hover:scale-105 hover:shadow-xl" : "bg-gray-600 text-gray-400 cursor-not-allowed"}`}
+            >
               {loading ? <span className="inline-flex items-center gap-2"><Spinner /> Đang tạo...</span> : "Tạo Campaign"}
             </button>
           </form>
@@ -296,23 +255,23 @@ export default function CreateCampaignPage() {
           {/* Preview */}
           <aside className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-sm">
-              <div className="text-sm font-semibold text-white">Preview</div>
+              <div className="text-sm font-semibold">Preview</div>
               <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                 <div className="aspect-[16/9] w-full bg-gray-800">
                   {form.image_url.trim() && isImageUrlValid ? (
-                    <img src={form.image_url.trim()} alt="cover" className="h-full w-full object-cover"/>
+                    <img src={form.image_url.trim()} alt="cover" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-gray-400">Chưa có ảnh / URL không hợp lệ</div>
                   )}
                 </div>
                 <div className="p-4">
-                  <div className="text-base font-semibold text-white">{form.title.trim() || "Tiêu đề sẽ hiển thị ở đây"}</div>
-                  <div className="mt-1 text-sm text-gray-300">{form.short_desc.trim() || "Mô tả ngắn sẽ hiển thị ở đây..."}</div>
+                  <div className="text-base font-semibold">{form.title || "Tiêu đề sẽ hiển thị ở đây"}</div>
+                  <div className="mt-1 text-sm text-gray-300">{form.short_desc || "Mô tả ngắn sẽ hiển thị ở đây..."}</div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-300">
                     <span className="rounded-full bg-white/10 px-2 py-1 ring-1 ring-white/20">Target: {form.target_amount || "0"} {form.currency}</span>
                     <span className="rounded-full bg-white/10 px-2 py-1 ring-1 ring-white/20">Deadline: {form.deadline || "—"}</span>
                   </div>
-                  <div className="mt-3 text-xs text-gray-400">Beneficiary: <code className="break-all">{form.beneficiary.trim() || "0x..."}</code></div>
+                  <div className="mt-3 text-xs text-gray-400">Beneficiary: <code className="break-all">{form.beneficiary || "0x..."}</code></div>
                 </div>
               </div>
             </div>
@@ -360,6 +319,19 @@ export default function CreateCampaignPage() {
         }
         .textarea::placeholder {
           color: rgba(255, 255, 255, 0.5);
+        }
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border-radius: 999px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .btn:hover {
+          transform: translateY(-1px);
         }
       `}</style>
     </div>

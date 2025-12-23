@@ -1,54 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
 
-const CONTRACT_ADDRESS = "0xYourContractAddressHere"; // Thay bằng địa chỉ contract
-const CONTRACT_ABI = [
-  "function donate(uint256 campaignId) public payable",
-];
+declare let window: any;
 
 export default function DonatePage() {
   const [campaignId, setCampaignId] = useState("");
   const [amount, setAmount] = useState("");
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [address, setAddress] = useState("");
+  const [balance, setBalance] = useState("0");
   const [loading, setLoading] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState("");
+  const [error, setError] = useState("");
+
+  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+  const CONTRACT_ABI = ["function donate(uint256 campaignId) payable"];
+
+  const connectWallet = async () => {
+    try {
+      if (!window.ethereum) throw new Error("MetaMask not installed");
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = provider.getSigner();
+      const addr = await signer.getAddress();
+      setAddress(addr);
+      setWalletConnected(true);
+
+      const bal = await provider.getBalance(addr);
+      setBalance(ethers.utils.formatEther(bal));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   const handleDonate = async () => {
-    if (!window.ethereum) {
-      setError("MetaMask not detected");
-      return;
-    }
-    setError(null);
-    setTxHash(null);
-
     try {
+      if (!window.ethereum) throw new Error("MetaMask not connected");
+      setError("");
+      setTxHash("");
       setLoading(true);
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = await provider.getSigner();
+
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-      const tx = await contract.donate(campaignId, { value: ethers.parseEther(amount) });
-      const receipt = await tx.wait();
-
-      setTxHash(receipt.transactionHash);
+      const tx = await contract.donate(campaignId, {
+        value: ethers.utils.parseEther(amount),
+      });
+      setTxHash(tx.hash);
+      await tx.wait();
+      alert("Donation successful!");
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Donation failed");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-xl p-6 bg-white/5 rounded-3xl backdrop-blur border border-white/10 shadow-lg">
-      <h1 className="text-2xl font-bold mb-4">🚀 Donate ETH</h1>
+    <div className="max-w-lg mx-auto mt-16 p-8 card space-y-6">
+      <h1 className="text-2xl font-bold text-center">🚀 Donate ETH</h1>
 
-      <div className="space-y-4">
+      {!walletConnected ? (
+        <button
+          onClick={connectWallet}
+          className="btn btn-primary w-full"
+        >
+          Connect Wallet
+        </button>
+      ) : (
+        <div className="text-sm text-gray-300 text-center">
+          <div>Connected: {address}</div>
+          <div>Balance: {balance} ETH</div>
+        </div>
+      )}
+
+      <div className="space-y-3">
         <input
-          type="number"
+          type="text"
           placeholder="Campaign ID"
           value={campaignId}
           onChange={(e) => setCampaignId(e.target.value)}
@@ -61,33 +92,30 @@ export default function DonatePage() {
           onChange={(e) => setAmount(e.target.value)}
           className="input"
         />
-
-        <button
-          onClick={handleDonate}
-          disabled={loading || !campaignId || !amount}
-          className={`w-full rounded-xl py-3 font-semibold transition ${
-            !campaignId || !amount
-              ? "bg-white/10 text-gray-500 cursor-not-allowed"
-              : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white"
-          }`}
-        >
-          {loading ? "⏳ Processing..." : "Donate"}
-        </button>
-
-        {txHash && (
-          <div className="mt-3 text-sm">
-            ✅ Donation sent:{" "}
-            <a
-              href={`https://sepolia.etherscan.io/tx/${txHash}`}
-              target="_blank"
-              className="underline"
-            >
-              View on Etherscan
-            </a>
-          </div>
-        )}
-        {error && <div className="text-red-400 text-sm">{error}</div>}
       </div>
+
+      <button
+        onClick={handleDonate}
+        disabled={!walletConnected || loading}
+        className="btn btn-primary w-full"
+      >
+        {loading ? "⏳ Sending..." : "Donate"}
+      </button>
+
+      {txHash && (
+        <p className="text-sm text-green-400 text-center">
+          ✅ Tx Hash:{" "}
+          <a
+            href={`https://sepolia.etherscan.io/tx/${txHash}`}
+            target="_blank"
+            className="underline"
+          >
+            {txHash.slice(0, 10)}...{txHash.slice(-6)}
+          </a>
+        </p>
+      )}
+
+      {error && <p className="text-sm text-red-400 text-center">{error}</p>}
     </div>
   );
 }

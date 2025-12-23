@@ -1,53 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
-type Campaign = {
-  id: number;
-  title: string;
-  short_desc: string;
-  target_amount: string;
-  deadline: string;
-};
-
 export default function ReliefsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchCampaigns() {
-      try {
-        const res = await fetch("/api/campaigns"); // Thay URL API backend của bạn
-        const data = await res.json();
-        setCampaigns(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCampaigns();
+    fetch("/api/v1/campaigns")
+      .then((res) => res.json())
+      .then((data) => setCampaigns(data));
   }, []);
-
-  if (loading) return <div className="text-center mt-10">Loading campaigns...</div>;
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {campaigns.map((c) => (
-        <Link
-          key={c.id}
-          href={`/reliefs/${c.id}`}
-          className="block p-6 rounded-3xl border border-white/10 bg-white/5 backdrop-blur hover:scale-[1.02] transition-transform shadow-lg"
-        >
-          <h2 className="text-lg font-bold mb-2">{c.title}</h2>
-          <p className="text-sm text-gray-300 mb-2">{c.short_desc}</p>
-          <div className="flex justify-between text-xs text-gray-400">
-            <span>🎯 {c.target_amount} ETH</span>
-            <span>⏰ {c.deadline}</span>
+      {campaigns.map((c) => {
+        const percent = Math.min(
+          (c.raised_amount / c.target_amount) * 100,
+          100
+        );
+        return (
+          <div key={c.id} className="card hover:scale-105 transition transform cursor-pointer">
+            <img
+              src={c.image_url || "/placeholder.png"}
+              className="h-48 w-full object-cover rounded-xl mb-4"
+              alt={c.title}
+            />
+            <h2 className="text-lg font-bold">{c.title}</h2>
+            <p className="text-sm text-gray-300 mb-3">{c.short_desc}</p>
+
+            <div className="h-3 w-full bg-white/20 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-3 bg-gradient-to-r from-indigo-400 to-purple-500 transition-all"
+                style={{ width: `${percent}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-300 mb-3">
+              {c.raised_amount} / {c.target_amount} ETH
+            </div>
+
+            <Link
+              href={`/reliefs/${c.slug}`}
+              className="btn btn-primary w-full text-center"
+            >
+              View & Donate
+            </Link>
           </div>
-        </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }
