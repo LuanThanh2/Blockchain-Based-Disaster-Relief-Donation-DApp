@@ -245,3 +245,49 @@ Bật/tắt campaign, cập nhật thông tin (nếu được cho phép) và đ�
 Báo cáo & minh bạch
 Xuất danh sách giao dịch, tổng thu/chi theo từng campaign và theo dõi log sự kiện (events) từ smart contract.
 
+
+## Trạng thái hiện tại (tóm tắt ngắn — một dòng / chức năng)
+
+- **Create campaign**: Hoàn thành — frontend form + backend lưu metadata + backend gửi on‑chain trong background. (Files: `Frontend/app/reliefadmin/create-campaign/page.tsx`, `backend/app/routes/campaigns.py`, `backend/app/services/web3_service.py`, `abi/DisasterFund.json`)
+- **Donate**: Chưa có UI/API trong `E:\Disaster_Relief_Dapp` (smart contract đã hỗ trợ `donate`).
+- **Track & display**: Một phần — DB lưu metadata và backend cố parse `CampaignCreated` để lấy `onchain_id`, nhưng thiếu API + frontend pages để hiển thị `raised` / donors / lịch sử donate.
+- **Withdraw**: Smart contract hỗ trợ `withdraw` — UI/API chưa triển khai.
+- **Manage campaign**: DB có trường `status` (cơ sở cho bật/tắt) — thiếu endpoint & UI để bật/tắt hoặc cập nhật campaign.
+- **Reports & events**: Chưa có indexer/endpoint để lưu và tổng hợp `DonationReceived`/`FundsWithdrawn` events.
+
+## Công việc ưu tiên (gợi ý thứ tự để chuyển giao)
+
+1. **Thêm Donate UI (ưu tiên cao)**
+	- Tạo `Frontend/app/user/donate/page.tsx` sử dụng MetaMask/ethers.js để user ký và gửi ETH tới hàm `donate(campaignId)` của contract.
+2. **Thêm campaign list/detail pages**
+	- Tạo `Frontend/app/reliefs/page.tsx` và `Frontend/app/reliefs/[slug]/page.tsx` để hiển thị tiến độ, link donate.
+3. **Triển khai endpoint/ indexer cho donations**
+	- Thêm endpoint backend để trả `raised`, `donor_count`, `donations` hoặc triển khai indexer đọc `DonationReceived` events và lưu vào DB.
+4. **Rút tiền (withdraw) & admin controls**
+	- Thêm endpoint/ UI admin để gọi `withdraw` (server‑signed hoặc client‑signed) và controls bật/tắt campaign.
+5. **Báo cáo & export**
+	- Sau khi có bảng `donations`, thêm endpoint xuất CSV/JSON cho báo cáo.
+
+## Checklist chuyển giao (cho người tiếp nhận)
+
+- [ ] Kiểm tra `.env` cho backend: `RPC_URL`, `DISASTER_FUND_ADDRESS`, `DEPLOYER_PRIVATE_KEY`, `DATABASE_URL`.
+- [ ] Khởi động Hardhat node (local) hoặc xác nhận RPC Sepolia + contract address.
+- [ ] Chạy backend (uvicorn) và frontend (Next.js) theo hướng dẫn phía trên.
+- [ ] Tạo campaign từ UI → kiểm tra `POST /api/v1/campaigns/` trả 201 và DB có record mới.
+- [ ] Nếu bật `createOnChain`, kiểm tra log backend (uvicorn) để thấy BG task gửi tx và cập nhật `contract_tx_hash` / `onchain_id`.
+- [ ] Nếu cần donate testing: triển khai donate UI (task ưu tiên 1) hoặc test thủ công bằng scripts/hardhat.
+
+## Kiểm thử nhanh (test plan ngắn)
+
+1. Chạy Hardhat node hoặc sử dụng Sepolia RPC.
+2. Deploy contract (local) hoặc dùng địa chỉ Sepolia đã deploy.
+3. Cấu hình `backend/.env` với `DISASTER_FUND_ADDRESS` và `DEPLOYER_PRIVATE_KEY` (dev only).
+4. Chạy backend và frontend.
+5. Tạo campaign từ UI → quan sát network request và backend logs.
+6. (Nếu on‑chain) mở Etherscan Sepolia hoặc Hardhat console để kiểm tra transaction receipt và event `CampaignCreated`.
+
+## Ghi chú an toàn
+
+- `DEPLOYER_PRIVATE_KEY` chỉ dùng cho môi trường phát triển; KHÔNG commit vào git. Dùng vault/KMS cho production.
+- On‑chain actions tiêu tốn gas — đảm bảo private key có ETH trên testnet khi chạy.
+

@@ -14,11 +14,13 @@ function normalizeAmoyRpcUrl(value) {
   return trimmed;
 }
 
+// Prefer a generic RPC_URL if provided. Fall back to network-specific env vars.
+const rpcUrl = normalizeAmoyRpcUrl(process.env.RPC_URL || "") || "";
 const amoyUrl =
-  normalizeAmoyRpcUrl(process.env.AMOY_RPC_URL || process.env.RPC_URL) ||
+  normalizeAmoyRpcUrl(process.env.AMOY_RPC_URL) || rpcUrl ||
   "https://rpc-amoy.polygon.technology";
 const sepoliaUrl =
-  normalizeAmoyRpcUrl(process.env.SEPOLIA_RPC_URL || process.env.RPC_URL) ||
+  normalizeAmoyRpcUrl(process.env.SEPOLIA_RPC_URL) || rpcUrl ||
   "https://ethereum-sepolia-rpc.publicnode.com";
 const deployerPrivateKey =
   process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY;
