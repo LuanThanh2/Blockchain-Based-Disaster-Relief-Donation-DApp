@@ -1,4 +1,4 @@
-// File: E:\Disaster_Relief_Dapp\Frontend\app\reliefadmin\create-campaign\page.tsx
+// File: C:\Users\Minh Tri\Desktop\bloackchain\v3\Blockchain-Based-Disaster-Relief-Donation-DApp\Frontend\app\reliefadmin\create-campaign\page.tsx
 import * as entry from '../../../../../app/reliefadmin/create-campaign/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

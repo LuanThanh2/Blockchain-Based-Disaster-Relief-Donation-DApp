@@ -32,3 +32,35 @@ class CampaignRead(BaseModel):
     class Config:
         from_attributes = True  # pydantic v2
 
+
+class DonationRead(BaseModel):
+    id: int
+    campaign_id: int
+    donor_address: str
+    amount_eth: float
+    tx_hash: str
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CampaignWithStats(CampaignRead):
+    """Campaign với thống kê donations"""
+    total_raised: float = 0.0  # Tổng số tiền đã quyên góp (ETH)
+    donor_count: int = 0  # Số lượng donors
+    donation_count: int = 0  # Số lượng donations
+    recent_donations: list[DonationRead] = []  # 5 donations gần nhất
+
+class WithdrawRead(BaseModel):
+    """Thông tin giao dịch rút tiền"""
+    campaign_id: int
+    campaign_onchain_id: int
+    owner: str
+    amount_eth: float
+    tx_hash: str
+    block_number: int
+    timestamp: int  # Unix timestamp
+
+    class Config:
+        from_attributes = True

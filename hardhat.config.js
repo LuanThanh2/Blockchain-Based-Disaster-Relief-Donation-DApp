@@ -55,11 +55,15 @@ function assertPrivateKey(value, name) {
 }
 
 assertNonEmptyString(amoyUrl, "AMOY_RPC_URL (or RPC_URL)");
-assertPrivateKey(deployerPrivateKey, "DEPLOYER_PRIVATE_KEY (or PRIVATE_KEY)");
 
-const normalizedDeployerPrivateKey = normalizePrivateKey(deployerPrivateKey);
+// Only validate private key if it's provided (allow running hardhat node without it)
+let normalizedDeployerPrivateKey = "";
+if (deployerPrivateKey) {
+  assertPrivateKey(deployerPrivateKey, "DEPLOYER_PRIVATE_KEY (or PRIVATE_KEY)");
+  normalizedDeployerPrivateKey = normalizePrivateKey(deployerPrivateKey);
+}
 
-if (typeof expectedDeployerAddress === "string" && expectedDeployerAddress.trim()) {
+if (normalizedDeployerPrivateKey && typeof expectedDeployerAddress === "string" && expectedDeployerAddress.trim()) {
   const { Wallet } = require("ethers");
   const derived = new Wallet(normalizedDeployerPrivateKey).address;
   const expected = expectedDeployerAddress.trim();
@@ -97,18 +101,23 @@ try {
   console.log("[hardhat] sepolia rpc host: <invalid url>");
 }
 
-module.exports = {
+const config = {
   solidity: "0.8.28",
-  networks: {
-    amoy: {
-      url: amoyUrl,
-      accounts: [normalizedDeployerPrivateKey],
-      chainId: 80002,
-    },
-    sepolia: {
-      url: sepoliaUrl,
-      accounts: [normalizedDeployerPrivateKey],
-      chainId: 11155111,
-    },
-  },
+  networks: {},
 };
+
+// Only add networks if private key is provided
+if (normalizedDeployerPrivateKey) {
+  config.networks.amoy = {
+    url: amoyUrl,
+    accounts: [normalizedDeployerPrivateKey],
+    chainId: 80002,
+  };
+  config.networks.sepolia = {
+    url: sepoliaUrl,
+    accounts: [normalizedDeployerPrivateKey],
+    chainId: 11155111,
+  };
+}
+
+module.exports = config;
