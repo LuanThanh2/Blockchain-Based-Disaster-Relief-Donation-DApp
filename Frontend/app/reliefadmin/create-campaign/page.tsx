@@ -3,11 +3,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+/* ================= CONFIG ================= */
 const API_URL =
-  (process?.env?.NEXT_PUBLIC_API_URL as string) ||
-  (process?.env?.NEXT_PUBLIC_API_BASE_URL as string) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://127.0.0.1:8000";
 
+/* ================= TYPES ================= */
 type FormState = {
   title: string;
   short_desc: string;
@@ -16,21 +18,28 @@ type FormState = {
   target_amount: string;
   currency: "ETH" | "USDT" | "USDC";
   beneficiary: string;
-  deadline: string; // yyyy-mm-dd
+  deadline: string;
   createOnChain: boolean;
 };
 
-// ===== Spinner =====
+/* ================= AUTH HELPERS ================= */
+function getAccessToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+}
+
+function getUserRole() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("role"); // admin | user
+}
+
+/* ================= UI COMPONENTS ================= */
 function Spinner() {
   return (
-    <span
-      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
-      aria-hidden
-    />
+    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
   );
 }
 
-// ===== Field Component =====
 function Field({
   label,
   hint,
@@ -56,10 +65,27 @@ function Field({
   );
 }
 
-// ===== Page Component =====
+/* ================= PAGE ================= */
 export default function CreateCampaignPage() {
   const router = useRouter();
 
+  /* ====== AUTH GUARD ====== */
+  useEffect(() => {
+    const token = getAccessToken();
+    const role = getUserRole();
+
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    if (role !== "admin") {
+      alert("Bạn không có quyền tạo campaign");
+      router.replace("/");
+    }
+  }, [router]);
+
+  /* ====== STATE ====== */
   const [form, setForm] = useState<FormState>({
     title: "",
     short_desc: "",
@@ -75,14 +101,8 @@ export default function CreateCampaignPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [serverErrorDetails, setServerErrorDetails] = useState<any>(null);
-  const [campaignId, setCampaignId] = useState<number | null>(null);
-  const [onchainId, setOnchainId] = useState<number | null>(null);
-  const [onchainStatus, setOnchainStatus] = useState<
-    "idle" | "pending" | "done"
-  >("idle");
 
+  /* ====== VALIDATION ====== */
   const isImageUrlValid = useMemo(() => {
     if (!form.image_url.trim()) return true;
     try {
@@ -97,29 +117,32 @@ export default function CreateCampaignPage() {
     if (!form.title.trim()) return "Tiêu đề không được để trống";
     if (!form.short_desc.trim()) return "Mô tả ngắn không được để trống";
     if (!form.description.trim()) return "Mô tả chi tiết không được để trống";
-    const amount = parseFloat(form.target_amount || "0");
+
+    const amount = parseFloat(form.target_amount);
     if (!(amount > 0)) return "Target phải lớn hơn 0";
-    if (!/^0x[a-fA-F0-9]{40}$/.test(form.beneficiary.trim()))
-      return "Địa chỉ beneficiary không hợp lệ";
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(form.beneficiary))
+      return "Beneficiary không hợp lệ";
+
     if (form.deadline && isNaN(Date.parse(form.deadline)))
       return "Deadline không hợp lệ";
-    if (!isImageUrlValid) return "Image URL không hợp lệ (cần http/https)";
+
+    if (!isImageUrlValid) return "Image URL không hợp lệ";
+
     return null;
   };
 
-  const canSubmit = useMemo(() => {
-    if (loading) return false;
-    return validate() === null;
-  }, [form, loading, isImageUrlValid]);
+  const canSubmit = !loading && validate() === null;
 
+  /* ====== HANDLERS ====== */
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
 
-    setForm((s) => ({
-      ...s,
+    setForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
@@ -128,14 +151,16 @@ export default function CreateCampaignPage() {
     e.preventDefault();
     setError(null);
     setSuccess(false);
-    setTxHash(null);
-    setCampaignId(null);
-    setOnchainId(null);
-    setOnchainStatus("idle");
 
     const v = validate();
     if (v) {
       setError(v);
+      return;
+    }
+
+    const token = getAccessToken();
+    if (!token) {
+      router.replace("/login");
       return;
     }
 
@@ -147,221 +172,81 @@ export default function CreateCampaignPage() {
         short_desc: form.short_desc.trim(),
         description: form.description.trim(),
         image_url: form.image_url.trim(),
-        target_amount: parseFloat(form.target_amount || "0"),
+        target_amount: parseFloat(form.target_amount),
         currency: form.currency,
         beneficiary: form.beneficiary.trim(),
-        deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
+        deadline: new Date(form.deadline).toISOString(),
         createOnChain: form.createOnChain,
       };
 
       const res = await fetch(`${API_URL}/api/v1/campaigns/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        let msg = `HTTP ${res.status}`;
-        try {
-          const data = await res.json();
-          setServerErrorDetails(data);
-          msg = data?.detail || data?.error || JSON.stringify(data);
-        } catch {}
-        throw new Error(msg);
+        const data = await res.json();
+        throw new Error(data?.detail || "Tạo campaign thất bại");
       }
 
-      const data = await res.json();
-      setServerErrorDetails(null);
-      setCampaignId(data?.id ?? null);
-      setTxHash(data?.contract_tx_hash || data?.txHash || null);
-      setOnchainId(data?.onchain_id ?? null);
       setSuccess(true);
-
-      // Poll for on-chain status if needed
-      if (form.createOnChain && data?.id) {
-        setOnchainStatus("pending");
-        const startedAt = Date.now();
-        const timeoutMs = 60_000;
-        const intervalMs = 1500;
-
-        while (Date.now() - startedAt < timeoutMs) {
-          try {
-            const r = await fetch(`${API_URL}/api/v1/campaigns/${data.id}`);
-            if (r.ok) {
-              const latest = await r.json();
-              if (latest?.contract_tx_hash) setTxHash(latest.contract_tx_hash);
-              if (latest?.onchain_id !== undefined) setOnchainId(latest.onchain_id);
-              if (latest?.contract_tx_hash && latest?.onchain_id !== undefined) {
-                setOnchainStatus("done");
-                break;
-              }
-            }
-          } catch {}
-          await new Promise((r) => setTimeout(r, intervalMs));
-        }
-      }
+      setTimeout(() => router.push("/reliefadmin/dashboard"), 2500);
     } catch (err: any) {
-      setError(err?.message || String(err));
+      setError(err.message || "Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
   };
 
-  // Redirect after success
-  useEffect(() => {
-    if (!success) return;
-    const t = setTimeout(() => router.push("/reliefadmin/dashboard"), 3000);
-    return () => clearTimeout(t);
-  }, [success, router]);
-
+  /* ====== UI ====== */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 text-white">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Tạo Campaign
-            </h1>
-            <p className="mt-2 text-sm text-gray-300">
-              Điền thông tin cơ bản, đặt mục tiêu gây quỹ và (tuỳ chọn) tạo on-chain qua backend deployer.
-            </p>
-          </div>
+    <div className="min-h-screen bg-black text-white p-10 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Tạo Campaign</h1>
 
-          <button
-            onClick={() => router.push("/reliefadmin/dashboard")}
-            className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-white/20 backdrop-blur"
-          >
-            Về Dashboard
-          </button>
-        </div>
+      {error && <div className="mb-4 text-red-400">{error}</div>}
+      {success && <div className="mb-4 text-green-400">Tạo thành công!</div>}
 
-        {/* Main Grid */}
-        <div className="grid gap-8 lg:grid-cols-[1.2fr,0.8fr]">
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-6">
-            {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
-            {success && <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">✅ Tạo campaign thành công</div>}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Field label="Tiêu đề" required>
+          <input name="title" className="input" value={form.title} onChange={handleChange} />
+        </Field>
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <Field label="Tiêu đề" hint="Ngắn gọn, rõ ràng." required>
-                <input name="title" value={form.title} onChange={handleChange} className="input" placeholder="Ví dụ: Hỗ trợ đồng bào vùng lũ" aria-label="Tiêu đề"/>
-              </Field>
+        <Field label="Mô tả ngắn" required>
+          <input name="short_desc" className="input" value={form.short_desc} onChange={handleChange} />
+        </Field>
 
-              <Field label="Mục tiêu (ETH)" hint="Số tiền cần gây quỹ." required>
-                <input name="target_amount" value={form.target_amount} onChange={handleChange} className="input" placeholder="Ví dụ: 1.5" inputMode="decimal" aria-label="Mục tiêu (ETH)"/>
-              </Field>
+        <Field label="Mô tả chi tiết" required>
+          <textarea name="description" className="textarea" value={form.description} onChange={handleChange} />
+        </Field>
 
-              <Field label="Mô tả ngắn" hint="1–2 câu tóm tắt để hiển thị ở danh sách." required>
-                <input name="short_desc" value={form.short_desc} onChange={handleChange} className="input" placeholder="Ví dụ: Gây quỹ khẩn cấp cho nhu yếu phẩm" aria-label="Mô tả ngắn"/>
-              </Field>
+        <Field label="Mục tiêu (ETH)" required>
+          <input name="target_amount" className="input" value={form.target_amount} onChange={handleChange} />
+        </Field>
 
-              <Field label="Deadline" hint="Ngày kết thúc (YYYY-MM-DD)." required>
-                <input name="deadline" type="date" value={form.deadline} onChange={handleChange} className="input" aria-label="Deadline"/>
-              </Field>
+        <Field label="Beneficiary" required>
+          <input name="beneficiary" className="input" value={form.beneficiary} onChange={handleChange} />
+        </Field>
 
-              <Field label="Mô tả chi tiết" hint="Nêu rõ mục tiêu, phạm vi hỗ trợ, cách sử dụng quỹ." required>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={6} className="textarea" aria-label="Mô tả chi tiết"/>
-              </Field>
+        <Field label="Deadline" required>
+          <input type="date" name="deadline" className="input" value={form.deadline} onChange={handleChange} />
+        </Field>
 
-              <Field label="Ảnh cover (URL)" error={!isImageUrlValid ? "URL không hợp lệ" : undefined}>
-                <input name="image_url" value={form.image_url} onChange={handleChange} placeholder="https://..." className="input" aria-label="Ảnh cover (URL)"/>
-              </Field>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" name="createOnChain" checked={form.createOnChain} onChange={handleChange} />
+          Tạo on-chain
+        </label>
 
-              <Field label="Beneficiary (ví nhận)" hint="Địa chỉ 0x... (40 hex)." required>
-                <input name="beneficiary" value={form.beneficiary} onChange={handleChange} placeholder="0x..." className="input font-mono" aria-label="Beneficiary (ví nhận)"/>
-              </Field>
-            </div>
-
-            {/* On-chain toggle */}
-            <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div>
-                <div className="text-sm font-medium text-white">Tạo on-chain</div>
-                <div className="mt-1 text-xs text-gray-300">
-                  Nếu bật, backend sẽ gửi tx tạo campaign trên contract (chạy background).
-                </div>
-              </div>
-
-              <label className="inline-flex cursor-pointer items-center gap-3">
-                <input type="checkbox" name="createOnChain" checked={form.createOnChain} onChange={handleChange} className="h-5 w-5 rounded border-white/20 bg-transparent"/>
-                <span className="text-sm font-medium text-white">{form.createOnChain ? "Bật" : "Tắt"}</span>
-              </label>
-            </div>
-
-            <button type="submit" disabled={!canSubmit} className={`w-full rounded-2xl px-5 py-3 text-sm font-semibold transition ${canSubmit ? "bg-gradient-to-r from-indigo-600 to-purple-700 text-white hover:scale-[1.02]" : "cursor-not-allowed bg-gray-600 text-gray-400"}`}>
-              {loading ? <span className="inline-flex items-center gap-2"><Spinner /> Đang tạo...</span> : "Tạo Campaign"}
-            </button>
-          </form>
-
-          {/* Preview */}
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-sm">
-              <div className="text-sm font-semibold text-white">Preview</div>
-              <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                <div className="aspect-[16/9] w-full bg-gray-800">
-                  {form.image_url.trim() && isImageUrlValid ? (
-                    <img src={form.image_url.trim()} alt="cover" className="h-full w-full object-cover"/>
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-gray-400">Chưa có ảnh / URL không hợp lệ</div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="text-base font-semibold text-white">{form.title.trim() || "Tiêu đề sẽ hiển thị ở đây"}</div>
-                  <div className="mt-1 text-sm text-gray-300">{form.short_desc.trim() || "Mô tả ngắn sẽ hiển thị ở đây..."}</div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-300">
-                    <span className="rounded-full bg-white/10 px-2 py-1 ring-1 ring-white/20">Target: {form.target_amount || "0"} {form.currency}</span>
-                    <span className="rounded-full bg-white/10 px-2 py-1 ring-1 ring-white/20">Deadline: {form.deadline || "—"}</span>
-                  </div>
-                  <div className="mt-3 text-xs text-gray-400">Beneficiary: <code className="break-all">{form.beneficiary.trim() || "0x..."}</code></div>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </div>
-
-      {/* Global Styles */}
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.05);
-          padding: 12px 14px;
-          font-size: 14px;
-          line-height: 20px;
-          color: white;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-          outline: none;
-        }
-        .input:focus {
-          border-color: rgba(99, 102, 241, 0.5);
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
-        }
-        .input::placeholder {
-          color: rgba(255, 255, 255, 0.5);
-        }
-        .textarea {
-          width: 100%;
-          border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.05);
-          padding: 12px 14px;
-          font-size: 14px;
-          line-height: 20px;
-          color: white;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-          outline: none;
-          resize: vertical;
-        }
-        .textarea:focus {
-          border-color: rgba(99, 102, 241, 0.5);
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
-        }
-        .textarea::placeholder {
-          color: rgba(255, 255, 255, 0.5);
-        }
-      `}</style>
+        <button
+          disabled={!canSubmit}
+          className="w-full py-3 rounded bg-indigo-600 disabled:bg-gray-600"
+        >
+          {loading ? <Spinner /> : "Tạo Campaign"}
+        </button>
+      </form>
     </div>
   );
 }

@@ -1,9 +1,14 @@
 {
   "pages": {
-    "/reliefadmin/dashboard/page": [
+    "/reliefadmin/create-campaign/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/reliefadmin/dashboard/page.js"
+      "static/chunks/app/reliefadmin/create-campaign/page.js"
+    ],
+    "/reliefadmin/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/reliefadmin/layout.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -11,15 +16,25 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/reliefadmin/create-campaign/page": [
+    "/reliefadmin/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/reliefadmin/create-campaign/page.js"
+      "static/chunks/app/reliefadmin/dashboard/page.js"
     ],
-    "/user/donate/page": [
+    "/reliefs/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/user/donate/page.js"
+      "static/chunks/app/reliefs/page.js"
+    ],
+    "/reliefadmin/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/reliefadmin/page.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/login/page.js"
     ]
   }
 }

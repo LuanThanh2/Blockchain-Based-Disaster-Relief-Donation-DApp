@@ -2,19 +2,29 @@ import logging
 import csv
 import io
 from datetime import datetime
-from fastapi import APIRouter, Depends, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    Request,
+    BackgroundTasks,
+)
 from fastapi.responses import JSONResponse, Response
-from fastapi.background import BackgroundTasks
 from sqlmodel import Session
 
+from app.dependencies.auth import admin_required
 from ..database import get_session, engine
-from ..schemas import CampaignCreate, CampaignRead, CampaignWithStats, DonationRead, WithdrawRead
+from ..schemas import (
+    CampaignCreate,
+    CampaignRead,
+    CampaignWithStats,
+    DonationRead,
+    WithdrawRead,
+)
 from ..models import Campaign, Donation
 from ..crud import (
     create_campaign,
     get_campaign,
     list_campaigns,
-    update_contract_tx_hash,
     update_onchain_info,
     create_donation,
     get_donations_by_campaign_id,
@@ -23,70 +33,59 @@ from ..crud import (
     update_campaign_status,
 )
 from ..services.web3_service import make_service
-
 from sqlmodel import Session as SyncSession
 
 logger = logging.getLogger("uvicorn.error")
-router = APIRouter(prefix="/api/v1/campaigns", tags=["campaigns"])
 
+router = APIRouter(
+    prefix="/api/v1/campaigns",
+    tags=["campaigns"],
+)
 
-def _create_onchain_and_update(campaign_id: int):
-    """
-    Runs in background:
-    - read campaign from DB
-    - send on-chain tx
-    - update contract_tx_hash + onchain_id
-    """
+# =========================================================
+# Background task: create campaign on blockchain
+# =========================================================
+def _create_onchain_campaign(campaign_id: int):
     try:
         with SyncSession(engine) as db:
-            c = db.get(Campaign, campaign_id)
-            if not c:
-                logger.error("BG task: campaign not found: %s", campaign_id)
+            campaign = db.get(Campaign, campaign_id)
+            if not campaign:
+                logger.error("Campaign not found: %s", campaign_id)
                 return
 
             svc = make_service()
-
-            # ✅ CHỖ SỬA CHÍNH: create_campaign trả về (tx_hash, onchain_id)
             tx_hash, onchain_id = svc.create_campaign(
-                title=c.title,
-                description=c.description or "",
-                goal_eth=float(c.target_amount),
+                title=campaign.title,
+                description=campaign.description or "",
+                goal_eth=float(campaign.target_amount),
             )
 
-            # ✅ Update cả 2 field
             update_onchain_info(db, campaign_id, tx_hash, onchain_id)
-
             logger.info(
-                "BG task: on-chain success. campaign_id=%s onchain_id=%s tx=%s",
+                "On-chain campaign created | id=%s onchain_id=%s tx=%s",
                 campaign_id,
                 onchain_id,
                 tx_hash,
             )
-
     except Exception as e:
-        logger.exception("BG task: on-chain failed. campaign_id=%s err=%s", campaign_id, e)
+        logger.exception("Create on-chain campaign failed: %s", e)
 
 
-@router.post("/", response_model=CampaignRead, status_code=201)
+# =========================================================
+# ADMIN: Create campaign
+# =========================================================
+@router.post(
+    "",
+    response_model=CampaignRead,
+    status_code=201,
+    dependencies=[Depends(admin_required)],
+)
 async def create_campaign_api(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_session),
 ):
-    # Read raw json safely
-    try:
-        payload_raw = await request.json()
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"detail": "Invalid JSON body", "error": str(e)})
-
-    # Validate payload
-    try:
-        payload = CampaignCreate(**payload_raw)
-    except Exception as e:
-        return JSONResponse(
-            status_code=422,
-            content={"detail": "Validation error", "error": str(e), "received": payload_raw},
-        )
+    payload = CampaignCreate(**await request.json())
 
     campaign = Campaign(
         title=payload.title,
@@ -99,663 +98,175 @@ async def create_campaign_api(
         deadline=payload.deadline,
         status="active",
     )
-    saved = create_campaign(db, campaign=campaign)
+
+    saved = create_campaign(db, campaign)
 
     if payload.createOnChain:
-        background_tasks.add_task(_create_onchain_and_update, saved.id)
+        background_tasks.add_task(_create_onchain_campaign, saved.id)
 
     return saved
 
 
-@router.get("/", response_model=list[CampaignRead])
+# =========================================================
+# PUBLIC APIs
+# =========================================================
+@router.get("", response_model=list[CampaignRead])
 def list_campaigns_api(db: Session = Depends(get_session)):
     return list_campaigns(db)
 
 
 @router.get("/{campaign_id}", response_model=CampaignRead)
 def get_campaign_api(campaign_id: int, db: Session = Depends(get_session)):
-    c = get_campaign(db, campaign_id)
-    if not c:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    return c
-
-@router.get("/{campaign_id}/stats", response_model=CampaignWithStats)
-def get_campaign_stats_api(campaign_id: int, db: Session = Depends(get_session)):
     campaign = get_campaign(db, campaign_id)
     if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    
+        return JSONResponse(404, {"detail": "Campaign not found"})
+    return campaign
+
+
+@router.get("/{campaign_id}/stats", response_model=CampaignWithStats)
+def campaign_stats_api(campaign_id: int, db: Session = Depends(get_session)):
+    campaign = get_campaign(db, campaign_id)
+    if not campaign:
+        return JSONResponse(404, {"detail": "Campaign not found"})
+
     stats = get_campaign_stats(db, campaign_id)
-    recent_donations = get_donations_by_campaign_id(db, campaign_id, limit=5)
-    
+    donations = get_donations_by_campaign_id(db, campaign_id, limit=5)
+
     return CampaignWithStats(
         **campaign.dict(),
         total_raised=stats["total_raised"],
         donor_count=stats["donor_count"],
         donation_count=stats["donation_count"],
-        recent_donations=recent_donations,
+        recent_donations=donations,
     )
+
 
 @router.get("/{campaign_id}/donations", response_model=list[DonationRead])
 def list_donations_api(campaign_id: int, db: Session = Depends(get_session)):
-    campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
     return get_donations_by_campaign_id(db, campaign_id, limit=100)
 
-def _sync_donations_from_blockchain(campaign_id: int, onchain_campaign_id: int):
-    """
-    Background task to fetch DonationReceived events and save to DB.
-    """
+
+# =========================================================
+# ADMIN: Sync donations from blockchain
+# =========================================================
+def _sync_donations(campaign_id: int, onchain_id: int):
     try:
-        from datetime import datetime
         with SyncSession(engine) as db:
             svc = make_service()
-            events = svc.get_donation_events(onchain_campaign_id)
+            events = svc.get_donation_events(onchain_id)
 
-            for event in events:
-                tx_hash = event['tx_hash']
-                if get_donation_by_tx_hash(db, tx_hash):
-                    logger.debug("Donation with tx_hash %s already exists, skipping.", tx_hash)
+            for ev in events:
+                if get_donation_by_tx_hash(db, ev["tx_hash"]):
                     continue
 
                 donation = Donation(
                     campaign_id=campaign_id,
-                    onchain_campaign_id=onchain_campaign_id,
-                    donor_address=event['donor'],
-                    amount_eth=event['amount_eth'],
-                    amount_wei=str(event['amount']),
-                    tx_hash=tx_hash,
-                    block_number=event['block_number'],
-                    timestamp=datetime.fromtimestamp(event['timestamp']),
+                    onchain_campaign_id=onchain_id,
+                    donor_address=ev["donor"],
+                    amount_eth=ev["amount_eth"],
+                    amount_wei=str(ev["amount"]),
+                    tx_hash=ev["tx_hash"],
+                    block_number=ev["block_number"],
+                    timestamp=datetime.fromtimestamp(ev["timestamp"]),
                 )
-                create_donation(db, donation=donation)
-                logger.info(
-                    "BG task: Saved donation %s from %s for campaign %s",
-                    tx_hash, event['donor'], campaign_id
-                )
-            logger.info("BG task: Sync completed for campaign %s. Found %d events.", campaign_id, len(events))
-    except Exception as e:
-        logger.exception("BG task: Failed to sync donations for campaign %s. Error: %s", campaign_id, e)
+                create_donation(db, donation)
 
-@router.post("/{campaign_id}/sync-donations", status_code=202)
+            logger.info("Donation sync completed for campaign %s", campaign_id)
+    except Exception as e:
+        logger.exception("Sync donation failed: %s", e)
+
+
+@router.post(
+    "/{campaign_id}/sync-donations",
+    status_code=202,
+    dependencies=[Depends(admin_required)],
+)
 async def sync_donations_api(
     campaign_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_session),
 ):
     campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    if campaign.onchain_id is None:
-        return JSONResponse(status_code=400, content={"detail": "Campaign not created on-chain yet."})
-    
-    background_tasks.add_task(_sync_donations_from_blockchain, campaign_id, campaign.onchain_id)
-    return {"message": "Đang đồng bộ donations từ blockchain...", "campaign_id": campaign_id, "onchain_id": campaign.onchain_id}
+    if not campaign or not campaign.onchain_id:
+        return JSONResponse(400, {"detail": "Campaign not on-chain"})
 
-@router.post("/{campaign_id}/withdraw", status_code=202)
-async def withdraw_funds_api(
+    background_tasks.add_task(
+        _sync_donations,
+        campaign_id,
+        campaign.onchain_id,
+    )
+    return {"message": "Sync started"}
+
+
+# =========================================================
+# ADMIN: Withdraw funds
+# =========================================================
+@router.post(
+    "/{campaign_id}/withdraw",
+    status_code=202,
+    dependencies=[Depends(admin_required)],
+)
+async def withdraw_api(
     campaign_id: int,
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_session),
 ):
-    """
-    Rút tiền từ campaign (server-signed)
-    Body: {"amount_eth": 1.5}
-    """
-    campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    if campaign.onchain_id is None:
-        return JSONResponse(status_code=400, content={"detail": "Campaign not created on-chain yet."})
-    
-    try:
-        payload = await request.json()
-        amount_eth = float(payload.get("amount_eth", 0))
-        if amount_eth <= 0:
-            return JSONResponse(status_code=400, content={"detail": "amount_eth must be > 0"})
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"detail": f"Invalid request body: {e}"})
-    
-    def _withdraw_and_update(campaign_id: int, onchain_id: int, amount_eth: float):
-        try:
-            with SyncSession(engine) as db:
-                svc = make_service()
-                tx_hash = svc.withdraw(onchain_id, amount_eth)
-                logger.info(f"BG task: Withdraw success. campaign_id={campaign_id} amount={amount_eth} ETH tx={tx_hash}")
-        except Exception as e:
-            logger.exception(f"BG task: Withdraw failed. campaign_id={campaign_id} err={e}")
-    
-    background_tasks.add_task(_withdraw_and_update, campaign_id, campaign.onchain_id, amount_eth)
-    return {
-        "message": f"Đang rút {amount_eth} ETH từ campaign...",
-        "campaign_id": campaign_id,
-        "onchain_id": campaign.onchain_id,
-        "amount_eth": amount_eth,
-    }
+    amount_eth = float((await request.json()).get("amount_eth", 0))
+    if amount_eth <= 0:
+        return JSONResponse(400, {"detail": "Invalid amount"})
 
-@router.post("/{campaign_id}/set-active", status_code=202)
+    campaign = get_campaign(db, campaign_id)
+    if not campaign or not campaign.onchain_id:
+        return JSONResponse(400, {"detail": "Campaign not on-chain"})
+
+    def _withdraw():
+        svc = make_service()
+        svc.withdraw(campaign.onchain_id, amount_eth)
+
+    background_tasks.add_task(_withdraw)
+    return {"message": "Withdraw processing"}
+
+
+# =========================================================
+# ADMIN: Enable / Disable campaign
+# =========================================================
+@router.post(
+    "/{campaign_id}/set-active",
+    status_code=202,
+    dependencies=[Depends(admin_required)],
+)
 async def set_active_api(
     campaign_id: int,
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_session),
 ):
-    """
-    Bật/tắt campaign (server-signed)
-    Body: {"active": true} hoặc {"active": false}
-    """
-    campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    if campaign.onchain_id is None:
-        return JSONResponse(status_code=400, content={"detail": "Campaign not created on-chain yet."})
-    
-    try:
-        payload = await request.json()
-        active = bool(payload.get("active", True))
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"detail": f"Invalid request body: {e}"})
-    
-    def _set_active_and_update(campaign_id: int, onchain_id: int, active: bool):
-        try:
-            with SyncSession(engine) as db:
-                svc = make_service()
-                tx_hash = svc.set_active(onchain_id, active)
-                # Update DB status
-                update_campaign_status(db, campaign_id, "active" if active else "closed")
-                logger.info(f"BG task: SetActive success. campaign_id={campaign_id} active={active} tx={tx_hash}")
-        except Exception as e:
-            logger.exception(f"BG task: SetActive failed. campaign_id={campaign_id} err={e}")
-    
-    background_tasks.add_task(_set_active_and_update, campaign_id, campaign.onchain_id, active)
-    return {
-        "message": f"Đang {'bật' if active else 'tắt'} campaign...",
-        "campaign_id": campaign_id,
-        "onchain_id": campaign.onchain_id,
-        "active": active,
-    }
+    active = bool((await request.json()).get("active", True))
 
-@router.get("/{campaign_id}/withdraws", response_model=list[WithdrawRead])
-def list_withdraws_api(campaign_id: int, db: Session = Depends(get_session)):
-    """
-    Lấy lịch sử giao dịch rút tiền từ blockchain
-    """
     campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    if campaign.onchain_id is None:
-        return JSONResponse(status_code=400, content={"detail": "Campaign not created on-chain yet."})
-    
-    try:
+    if not campaign or not campaign.onchain_id:
+        return JSONResponse(400, {"detail": "Campaign not on-chain"})
+
+    def _set_active():
         svc = make_service()
-        events = svc.get_withdraw_events(campaign.onchain_id)
-        
-        # Convert to WithdrawRead format
-        withdraws = []
-        for event in events:
-            withdraws.append(WithdrawRead(
-                campaign_id=campaign_id,
-                campaign_onchain_id=campaign.onchain_id,
-                owner=event['owner'],
-                amount_eth=event['amount_eth'],
-                tx_hash=event['tx_hash'],
-                block_number=event['block_number'],
-                timestamp=event['timestamp'],
-            ))
-        
-        return withdraws
-    except Exception as e:
-        logger.exception(f"Error getting withdraw events: {e}")
-        return JSONResponse(status_code=500, content={"detail": f"Error getting withdraw events: {e}"})
-
-
-@router.get("/{campaign_id}/withdraws/export")
-def export_withdraws_api(
-    campaign_id: int,
-    format: str = "json",  # "json" or "csv"
-    db: Session = Depends(get_session),
-):
-    """
-    Xuất lịch sử **rút tiền** (withdraws) ra CSV hoặc JSON cho một campaign.
-
-    Query params:
-        - format: "json" hoặc "csv" (default: "json")
-    """
-    campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    if campaign.onchain_id is None:
-        return JSONResponse(status_code=400, content={"detail": "Campaign not created on-chain yet."})
-
-    try:
-        svc = make_service()
-        events = svc.get_withdraw_events(campaign.onchain_id)
-    except Exception as e:
-        logger.exception(f"Error getting withdraw events for export: {e}")
-        return JSONResponse(status_code=500, content={"detail": f"Error getting withdraw events: {e}"})
-
-    # Chuẩn hoá dữ liệu
-    withdraws = []
-    for idx, event in enumerate(events, start=1):
-        ts_int = event.get("timestamp")
-        # timestamp trong web3_service là unix int; convert sang ISO cho dễ đọc
-        ts_iso = (
-            datetime.fromtimestamp(ts_int).isoformat()
-            if isinstance(ts_int, (int, float))
-            else None
-        )
-        withdraws.append(
-            {
-                "index": idx,
-                "campaign_id": campaign_id,
-                "campaign_onchain_id": campaign.onchain_id,
-                "owner": event.get("owner"),
-                "amount_eth": event.get("amount_eth"),
-                "tx_hash": event.get("tx_hash"),
-                "block_number": event.get("block_number"),
-                "timestamp_unix": ts_int,
-                "timestamp": ts_iso,
-            }
+        svc.set_active(campaign.onchain_id, active)
+        update_campaign_status(
+            db,
+            campaign_id,
+            "active" if active else "closed",
         )
 
-    if format.lower() == "csv":
-        # Export CSV
-        output = io.StringIO()
-        writer = csv.writer(output)
+    background_tasks.add_task(_set_active)
+    return {"message": "Status updating"}
 
-        # Header
-        writer.writerow(
-            [
-                "Index",
-                "Campaign ID",
-                "Campaign On-chain ID",
-                "Owner",
-                "Amount (ETH)",
-                "Transaction Hash",
-                "Block Number",
-                "Timestamp (Unix)",
-                "Timestamp (ISO8601)",
-            ]
-        )
 
-        # Data rows
-        for w in withdraws:
-            writer.writerow(
-                [
-                    w["index"],
-                    w["campaign_id"],
-                    w["campaign_onchain_id"],
-                    w["owner"],
-                    w["amount_eth"],
-                    w["tx_hash"],
-                    w["block_number"],
-                    w["timestamp_unix"],
-                    w["timestamp"],
-                ]
-            )
-
-        csv_content = output.getvalue()
-        output.close()
-
-        filename = f"withdraws_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-
-        return Response(
-            content=csv_content,
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
-        )
-
-    # Export JSON
-    filename = f"withdraws_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-
-    return Response(
-        content=JSONResponse(content=withdraws).body,
-        media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
-
-@router.get("/{campaign_id}/donations/export")
-def export_donations_api(
-    campaign_id: int,
-    format: str = "json",  # "json" or "csv"
-    db: Session = Depends(get_session),
-):
-    """
-    Xuất donations ra CSV hoặc JSON
-    
-    Query params:
-        format: "json" hoặc "csv" (default: "json")
-    """
-    campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    
-    donations = get_donations_by_campaign_id(db, campaign_id, limit=10000)  # Large limit for export
-    
-    if format.lower() == "csv":
-        # Export CSV
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Header
-        writer.writerow([
-            "ID",
-            "Campaign ID",
-            "Donor Address",
-            "Amount (ETH)",
-            "Amount (Wei)",
-            "Transaction Hash",
-            "Block Number",
-            "Timestamp",
-            "Created At"
-        ])
-        
-        # Data rows
-        for donation in donations:
-            writer.writerow([
-                donation.id,
-                donation.campaign_id,
-                donation.donor_address,
-                donation.amount_eth,
-                donation.amount_wei,
-                donation.tx_hash,
-                donation.block_number,
-                donation.timestamp.isoformat() if donation.timestamp else "",
-                donation.created_at.isoformat() if donation.created_at else "",
-            ])
-        
-        csv_content = output.getvalue()
-        output.close()
-        
-        filename = f"donations_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        
-        return Response(
-            content=csv_content,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-    
-    else:
-        # Export JSON
-        donations_data = [
-            {
-                "id": d.id,
-                "campaign_id": d.campaign_id,
-                "donor_address": d.donor_address,
-                "amount_eth": d.amount_eth,
-                "amount_wei": d.amount_wei,
-                "tx_hash": d.tx_hash,
-                "block_number": d.block_number,
-                "timestamp": d.timestamp.isoformat() if d.timestamp else None,
-                "created_at": d.created_at.isoformat() if d.created_at else None,
-            }
-            for d in donations
-        ]
-        
-        filename = f"donations_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        
-        return Response(
-            content=JSONResponse(content=donations_data).body,
-            media_type="application/json",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-
-@router.get("/{campaign_id}/transactions/export")
-def export_all_transactions_api(
-    campaign_id: int,
-    format: str = "json",  # "json" or "csv"
-    db: Session = Depends(get_session),
-):
-    """
-    Xuất TẤT CẢ giao dịch (donations + withdraws) ra CSV hoặc JSON cho một campaign.
-    
-    Query params:
-        format: "json" hoặc "csv" (default: "json")
-    """
-    campaign = get_campaign(db, campaign_id)
-    if not campaign:
-        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
-    
-    # Lấy donations từ DB
-    donations = get_donations_by_campaign_id(db, campaign_id, limit=10000)
-    
-    # Lấy withdraws từ blockchain (nếu campaign đã on-chain)
-    withdraws = []
-    if campaign.onchain_id is not None:
-        try:
-            svc = make_service()
-            withdraw_events = svc.get_withdraw_events(campaign.onchain_id)
-            for idx, event in enumerate(withdraw_events, start=1):
-                ts_int = event.get("timestamp")
-                ts_iso = (
-                    datetime.fromtimestamp(ts_int).isoformat()
-                    if isinstance(ts_int, (int, float))
-                    else None
-                )
-                withdraws.append({
-                    "type": "withdraw",
-                    "index": idx,
-                    "campaign_id": campaign_id,
-                    "campaign_onchain_id": campaign.onchain_id,
-                    "address": event.get("owner"),  # owner = người rút tiền
-                    "amount_eth": event.get("amount_eth"),
-                    "tx_hash": event.get("tx_hash"),
-                    "block_number": event.get("block_number"),
-                    "timestamp_unix": ts_int,
-                    "timestamp": ts_iso,
-                })
-        except Exception as e:
-            logger.warning(f"Could not fetch withdraws for export: {e}")
-    
-    # Chuẩn hoá donations
-    donations_data = []
-    for d in donations:
-        donations_data.append({
-            "type": "donation",
-            "id": d.id,
-            "campaign_id": d.campaign_id,
-            "address": d.donor_address,
-            "amount_eth": d.amount_eth,
-            "amount_wei": d.amount_wei,
-            "tx_hash": d.tx_hash,
-            "block_number": d.block_number,
-            "timestamp": d.timestamp.isoformat() if d.timestamp else None,
-            "created_at": d.created_at.isoformat() if d.created_at else None,
-        })
-    
-    # Gộp tất cả transactions và sort theo timestamp
-    all_transactions = donations_data + withdraws
-    # Sort: donations có timestamp là datetime string, withdraws có timestamp_unix
-    all_transactions.sort(key=lambda x: (
-        x.get("timestamp_unix") or 0 if x.get("type") == "withdraw" 
-        else datetime.fromisoformat(x.get("timestamp") or "1970-01-01").timestamp() if x.get("timestamp") 
-        else 0
-    ), reverse=True)
-    
-    if format.lower() == "csv":
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Header
-        writer.writerow([
-            "Type",
-            "ID/Index",
-            "Campaign ID",
-            "Address",
-            "Amount (ETH)",
-            "Transaction Hash",
-            "Block Number",
-            "Timestamp",
-        ])
-        
-        # Data rows
-        for tx in all_transactions:
-            if tx["type"] == "donation":
-                writer.writerow([
-                    "Donation",
-                    tx["id"],
-                    tx["campaign_id"],
-                    tx["address"],
-                    tx["amount_eth"],
-                    tx["tx_hash"],
-                    tx["block_number"],
-                    tx["timestamp"] or "",
-                ])
-            else:  # withdraw
-                writer.writerow([
-                    "Withdraw",
-                    tx["index"],
-                    tx["campaign_id"],
-                    tx["address"],
-                    tx["amount_eth"],
-                    tx["tx_hash"],
-                    tx["block_number"],
-                    tx["timestamp"] or "",
-                ])
-        
-        csv_content = output.getvalue()
-        output.close()
-        
-        filename = f"transactions_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        
-        return Response(
-            content=csv_content,
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
-        )
-    
-    # Export JSON
-    filename = f"transactions_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    
-    return Response(
-        content=JSONResponse(content={
-            "campaign_id": campaign_id,
-            "campaign_title": campaign.title,
-            "total_donations": len(donations_data),
-            "total_withdraws": len(withdraws),
-            "transactions": all_transactions,
-        }).body,
-        media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
-
-@router.get("/export/all")
-def export_all_campaigns_api(
-    format: str = "json",  # "json" or "csv"
-    db: Session = Depends(get_session),
-):
-    """
-    Xuất tất cả campaigns với stats ra CSV hoặc JSON
-    
-    Query params:
-        format: "json" hoặc "csv" (default: "json")
-    """
-    campaigns = list_campaigns(db)
-    
-    # Get stats for each campaign
-    campaigns_with_stats = []
-    for campaign in campaigns:
-        stats = get_campaign_stats(db, campaign.id)
-        campaigns_with_stats.append({
-            "id": campaign.id,
-            "title": campaign.title,
-            "short_desc": campaign.short_desc,
-            "description": campaign.description,
-            "image_url": campaign.image_url,
-            "target_amount": campaign.target_amount,
-            "currency": campaign.currency,
-            "beneficiary": campaign.beneficiary,
-            "deadline": campaign.deadline.isoformat() if campaign.deadline else None,
-            "owner": campaign.owner,
-            "contract_tx_hash": campaign.contract_tx_hash,
-            "onchain_id": campaign.onchain_id,
-            "status": campaign.status,
-            "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
-            "total_raised": stats["total_raised"],
-            "donor_count": stats["donor_count"],
-            "donation_count": stats["donation_count"],
-        })
-    
-    if format.lower() == "csv":
-        # Export CSV
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Header
-        writer.writerow([
-            "ID",
-            "Title",
-            "Short Description",
-            "Description",
-            "Image URL",
-            "Target Amount (ETH)",
-            "Currency",
-            "Beneficiary",
-            "Deadline",
-            "Owner",
-            "Contract TX Hash",
-            "On-chain ID",
-            "Status",
-            "Created At",
-            "Total Raised (ETH)",
-            "Donor Count",
-            "Donation Count"
-        ])
-        
-        # Data rows
-        for c in campaigns_with_stats:
-            writer.writerow([
-                c["id"],
-                c["title"],
-                c["short_desc"] or "",
-                c["description"] or "",
-                c["image_url"] or "",
-                c["target_amount"],
-                c["currency"],
-                c["beneficiary"] or "",
-                c["deadline"] or "",
-                c["owner"] or "",
-                c["contract_tx_hash"] or "",
-                c["onchain_id"] or "",
-                c["status"],
-                c["created_at"] or "",
-                c["total_raised"],
-                c["donor_count"],
-                c["donation_count"],
-            ])
-        
-        csv_content = output.getvalue()
-        output.close()
-        
-        filename = f"campaigns_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        
-        return Response(
-            content=csv_content,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-    
-    else:
-        # Export JSON
-        filename = f"campaigns_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        
-        return Response(
-            content=JSONResponse(content=campaigns_with_stats).body,
-            media_type="application/json",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-
+# =========================================================
+# DEBUG
+# =========================================================
 @router.post("/debug/echo")
 async def debug_echo(request: Request):
-    raw = await request.body()
-    return {"raw_body": raw.decode("utf-8", errors="replace"), "headers": dict(request.headers)}
+    return {
+        "body": (await request.body()).decode(),
+        "headers": dict(request.headers),
+    }
