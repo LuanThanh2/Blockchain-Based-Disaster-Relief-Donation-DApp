@@ -438,7 +438,11 @@ export default function CampaignDetailPage() {
                           +{donation.amount_eth.toFixed(4)} ETH
                         </p>
                         <a
-                          href={`https://sepolia.etherscan.io/tx/${donation.tx_hash}`}
+                          href={`https://sepolia.etherscan.io/tx/${
+                            donation.tx_hash?.startsWith("0x")
+                              ? donation.tx_hash
+                              : `0x${donation.tx_hash || ""}`
+                          }`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 justify-end"

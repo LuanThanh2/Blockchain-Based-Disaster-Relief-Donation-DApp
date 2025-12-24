@@ -21,7 +21,6 @@ type CampaignStats = {
 };
 
 export default function DashboardPage() {
-<<<<<<< HEAD
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<CampaignStats[]>([]);
   const [loading, setLoading] = useState(true);

@@ -177,12 +177,16 @@ class Web3Service:
                     # Get transaction details để lấy timestamp
                     block = self.w3.eth.get_block(event_data['blockNumber'])
                     
+                    # Chuẩn hoá tx_hash luôn có prefix 0x để dùng với Etherscan
+                    tx_hash_raw = event_data['transactionHash']
+                    tx_hash = self.w3.to_hex(tx_hash_raw)
+
                     donations.append({
                         'campaignId': event_campaign_id,
                         'donor': event_data['args']['donor'],
                         'amount': event_data['args']['amount'],  # wei
                         'amount_eth': float(self.w3.from_wei(event_data['args']['amount'], 'ether')),  # ETH
-                        'tx_hash': event_data['transactionHash'].hex(),
+                        'tx_hash': tx_hash,
                         'block_number': event_data['blockNumber'],
                         'timestamp': block['timestamp']
                     })
