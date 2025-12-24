@@ -29,10 +29,12 @@ export default function ReliefsPage() {
 
   useEffect(() => {
     let mounted = true;
-    async function load() {
+    async function fetchCampaigns() {
       try {
         const res = await fetch(`${API_BASE}/api/v1/campaigns/`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
         const data = await res.json();
         
         // Fetch stats for each campaign
@@ -76,7 +78,7 @@ export default function ReliefsPage() {
         if (mounted) setLoading(false);
       }
     }
-    load();
+    fetchCampaigns();
     return () => {
       mounted = false;
     };
