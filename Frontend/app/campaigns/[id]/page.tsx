@@ -328,22 +328,42 @@ export default function CampaignDetailPage() {
                   
                   <button
                     onClick={() => {
-                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/donations/export?format=csv`, '_blank');
+                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/transactions/export?format=csv`, '_blank');
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
-                    title="Xuất donations ra CSV"
+                    title="Xuất tất cả giao dịch (donations + withdraws) ra CSV"
                   >
-                    📊 Export CSV
+                    📊 Export CSV (All)
                   </button>
                   
                   <button
                     onClick={() => {
-                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/donations/export?format=json`, '_blank');
+                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/transactions/export?format=json`, '_blank');
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
-                    title="Xuất donations ra JSON"
+                    title="Xuất tất cả giao dịch (donations + withdraws) ra JSON"
                   >
-                    📄 Export JSON
+                    📄 Export JSON (All)
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/donations/export?format=csv`, '_blank');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                    title="Chỉ xuất donations ra CSV"
+                  >
+                    💝 Donations CSV
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/withdraws/export?format=csv`, '_blank');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm font-medium"
+                    title="Chỉ xuất withdraws ra CSV"
+                  >
+                    💰 Withdraws CSV
                   </button>
           </div>
         </div>

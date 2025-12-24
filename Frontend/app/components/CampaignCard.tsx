@@ -126,7 +126,7 @@ export default function CampaignCard({
         )}
 
         {/* Admin Controls */}
-        {showAdminControls && onchain_id && (
+        {showAdminControls && (
           <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
             <div className="flex gap-2">
               <button

@@ -310,6 +310,112 @@ def list_withdraws_api(campaign_id: int, db: Session = Depends(get_session)):
         logger.exception(f"Error getting withdraw events: {e}")
         return JSONResponse(status_code=500, content={"detail": f"Error getting withdraw events: {e}"})
 
+
+@router.get("/{campaign_id}/withdraws/export")
+def export_withdraws_api(
+    campaign_id: int,
+    format: str = "json",  # "json" or "csv"
+    db: Session = Depends(get_session),
+):
+    """
+    Xuất lịch sử **rút tiền** (withdraws) ra CSV hoặc JSON cho một campaign.
+
+    Query params:
+        - format: "json" hoặc "csv" (default: "json")
+    """
+    campaign = get_campaign(db, campaign_id)
+    if not campaign:
+        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
+    if campaign.onchain_id is None:
+        return JSONResponse(status_code=400, content={"detail": "Campaign not created on-chain yet."})
+
+    try:
+        svc = make_service()
+        events = svc.get_withdraw_events(campaign.onchain_id)
+    except Exception as e:
+        logger.exception(f"Error getting withdraw events for export: {e}")
+        return JSONResponse(status_code=500, content={"detail": f"Error getting withdraw events: {e}"})
+
+    # Chuẩn hoá dữ liệu
+    withdraws = []
+    for idx, event in enumerate(events, start=1):
+        ts_int = event.get("timestamp")
+        # timestamp trong web3_service là unix int; convert sang ISO cho dễ đọc
+        ts_iso = (
+            datetime.fromtimestamp(ts_int).isoformat()
+            if isinstance(ts_int, (int, float))
+            else None
+        )
+        withdraws.append(
+            {
+                "index": idx,
+                "campaign_id": campaign_id,
+                "campaign_onchain_id": campaign.onchain_id,
+                "owner": event.get("owner"),
+                "amount_eth": event.get("amount_eth"),
+                "tx_hash": event.get("tx_hash"),
+                "block_number": event.get("block_number"),
+                "timestamp_unix": ts_int,
+                "timestamp": ts_iso,
+            }
+        )
+
+    if format.lower() == "csv":
+        # Export CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header
+        writer.writerow(
+            [
+                "Index",
+                "Campaign ID",
+                "Campaign On-chain ID",
+                "Owner",
+                "Amount (ETH)",
+                "Transaction Hash",
+                "Block Number",
+                "Timestamp (Unix)",
+                "Timestamp (ISO8601)",
+            ]
+        )
+
+        # Data rows
+        for w in withdraws:
+            writer.writerow(
+                [
+                    w["index"],
+                    w["campaign_id"],
+                    w["campaign_onchain_id"],
+                    w["owner"],
+                    w["amount_eth"],
+                    w["tx_hash"],
+                    w["block_number"],
+                    w["timestamp_unix"],
+                    w["timestamp"],
+                ]
+            )
+
+        csv_content = output.getvalue()
+        output.close()
+
+        filename = f"withdraws_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    # Export JSON
+    filename = f"withdraws_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+    return Response(
+        content=JSONResponse(content=withdraws).body,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
 @router.get("/{campaign_id}/donations/export")
 def export_donations_api(
     campaign_id: int,
@@ -399,6 +505,145 @@ def export_donations_api(
                 "Content-Disposition": f"attachment; filename={filename}"
             }
         )
+
+@router.get("/{campaign_id}/transactions/export")
+def export_all_transactions_api(
+    campaign_id: int,
+    format: str = "json",  # "json" or "csv"
+    db: Session = Depends(get_session),
+):
+    """
+    Xuất TẤT CẢ giao dịch (donations + withdraws) ra CSV hoặc JSON cho một campaign.
+    
+    Query params:
+        format: "json" hoặc "csv" (default: "json")
+    """
+    campaign = get_campaign(db, campaign_id)
+    if not campaign:
+        return JSONResponse(status_code=404, content={"detail": "Campaign not found"})
+    
+    # Lấy donations từ DB
+    donations = get_donations_by_campaign_id(db, campaign_id, limit=10000)
+    
+    # Lấy withdraws từ blockchain (nếu campaign đã on-chain)
+    withdraws = []
+    if campaign.onchain_id is not None:
+        try:
+            svc = make_service()
+            withdraw_events = svc.get_withdraw_events(campaign.onchain_id)
+            for idx, event in enumerate(withdraw_events, start=1):
+                ts_int = event.get("timestamp")
+                ts_iso = (
+                    datetime.fromtimestamp(ts_int).isoformat()
+                    if isinstance(ts_int, (int, float))
+                    else None
+                )
+                withdraws.append({
+                    "type": "withdraw",
+                    "index": idx,
+                    "campaign_id": campaign_id,
+                    "campaign_onchain_id": campaign.onchain_id,
+                    "address": event.get("owner"),  # owner = người rút tiền
+                    "amount_eth": event.get("amount_eth"),
+                    "tx_hash": event.get("tx_hash"),
+                    "block_number": event.get("block_number"),
+                    "timestamp_unix": ts_int,
+                    "timestamp": ts_iso,
+                })
+        except Exception as e:
+            logger.warning(f"Could not fetch withdraws for export: {e}")
+    
+    # Chuẩn hoá donations
+    donations_data = []
+    for d in donations:
+        donations_data.append({
+            "type": "donation",
+            "id": d.id,
+            "campaign_id": d.campaign_id,
+            "address": d.donor_address,
+            "amount_eth": d.amount_eth,
+            "amount_wei": d.amount_wei,
+            "tx_hash": d.tx_hash,
+            "block_number": d.block_number,
+            "timestamp": d.timestamp.isoformat() if d.timestamp else None,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+    
+    # Gộp tất cả transactions và sort theo timestamp
+    all_transactions = donations_data + withdraws
+    # Sort: donations có timestamp là datetime string, withdraws có timestamp_unix
+    all_transactions.sort(key=lambda x: (
+        x.get("timestamp_unix") or 0 if x.get("type") == "withdraw" 
+        else datetime.fromisoformat(x.get("timestamp") or "1970-01-01").timestamp() if x.get("timestamp") 
+        else 0
+    ), reverse=True)
+    
+    if format.lower() == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Header
+        writer.writerow([
+            "Type",
+            "ID/Index",
+            "Campaign ID",
+            "Address",
+            "Amount (ETH)",
+            "Transaction Hash",
+            "Block Number",
+            "Timestamp",
+        ])
+        
+        # Data rows
+        for tx in all_transactions:
+            if tx["type"] == "donation":
+                writer.writerow([
+                    "Donation",
+                    tx["id"],
+                    tx["campaign_id"],
+                    tx["address"],
+                    tx["amount_eth"],
+                    tx["tx_hash"],
+                    tx["block_number"],
+                    tx["timestamp"] or "",
+                ])
+            else:  # withdraw
+                writer.writerow([
+                    "Withdraw",
+                    tx["index"],
+                    tx["campaign_id"],
+                    tx["address"],
+                    tx["amount_eth"],
+                    tx["tx_hash"],
+                    tx["block_number"],
+                    tx["timestamp"] or "",
+                ])
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        filename = f"transactions_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    
+    # Export JSON
+    filename = f"transactions_campaign_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    return Response(
+        content=JSONResponse(content={
+            "campaign_id": campaign_id,
+            "campaign_title": campaign.title,
+            "total_donations": len(donations_data),
+            "total_withdraws": len(withdraws),
+            "transactions": all_transactions,
+        }).body,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 @router.get("/export/all")
 def export_all_campaigns_api(
