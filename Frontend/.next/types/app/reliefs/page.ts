@@ -1,4 +1,4 @@
-// File: C:\Users\Minh Tri\Desktop\bloackchain\v3\Blockchain-Based-Disaster-Relief-Donation-DApp\Frontend\app\reliefs\page.tsx
+// File: F:\bc\Blockchain-Based-Disaster-Relief-Donation-DApp\Frontend\app\reliefs\page.tsx
 import * as entry from '../../../../app/reliefs/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
