@@ -18,6 +18,7 @@ type CampaignStats = {
   donation_count: number;
   onchain_id: number;
   status: string;
+  is_visible?: boolean;
 };
 
 export default function DashboardPage() {
@@ -26,15 +27,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState<number | null>(null);
   const [toggling, setToggling] = useState<number | null>(null);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<number | null>(null);
-  const [withdraws, setWithdraws] = useState<any[]>([]);
-  const [loadingWithdraws, setLoadingWithdraws] = useState(false);
 
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/v1/campaigns/`);
+        // Admin cần xem TẤT CẢ campaigns (kể cả invisible)
+        const res = await fetch(`${API_URL}/api/v1/campaigns/?visible_only=false`);
         if (res.ok) {
           const data = await res.json();
           
@@ -112,22 +110,49 @@ export default function DashboardPage() {
 
     setWithdrawing(campaignId);
     try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        alert("Bạn cần đăng nhập để thực hiện thao tác này");
+        router.push("/login");
+        return;
+      }
+
       const res = await fetch(`${API_URL}/api/v1/campaigns/${campaignId}/withdraw`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({ amount_eth: amount }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        alert(`Đã gửi yêu cầu rút tiền!\n${data.message}\nTransaction sẽ được xử lý trong background.`);
-        // Refresh sau 3 giây
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
+        if (data.success && data.tx_hash) {
+          // Success notification với transaction hash
+          const etherscanUrl = `https://sepolia.etherscan.io/tx/${data.tx_hash}`;
+          const message = `✅ Rút tiền thành công!\n\n` +
+            `Số tiền: ${data.amount_eth} ETH\n` +
+            `Transaction Hash: ${data.tx_hash}\n\n` +
+            `Bạn có thể xem chi tiết trên Etherscan.`;
+          
+          if (confirm(message + "\n\nBấm OK để mở Etherscan, Cancel để đóng.")) {
+            window.open(etherscanUrl, '_blank');
+          }
+          
+          // Refresh sau 2 giây để cập nhật dữ liệu
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          alert(`⚠️ ${data.message || "Đã gửi yêu cầu rút tiền nhưng chưa có transaction hash"}`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        }
       } else {
-        const error = await res.json();
-        alert(`Lỗi: ${error.detail || "Không thể rút tiền"}`);
+        const error = await res.json().catch(() => ({ detail: "Không thể rút tiền" }));
+        alert(`❌ Lỗi: ${error.detail || error.message || "Không thể rút tiền"}`);
       }
     } catch (error) {
       console.error("Error withdrawing:", error);
@@ -153,9 +178,19 @@ export default function DashboardPage() {
 
     setToggling(campaignId);
     try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        alert("Bạn cần đăng nhập để thực hiện thao tác này");
+        router.push("/login");
+        return;
+      }
+
       const res = await fetch(`${API_URL}/api/v1/campaigns/${campaignId}/set-active`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({ active: newStatus === "active" }),
       });
 
@@ -179,39 +214,23 @@ export default function DashboardPage() {
   };
 
   const handleViewWithdraws = async (campaignId: number) => {
-    console.log("handleViewWithdraws called for campaign:", campaignId);
-    setSelectedCampaignId(campaignId);
-    setShowWithdrawModal(true);
-    setLoadingWithdraws(true);
-    
-    try {
-      const res = await fetch(`${API_URL}/api/v1/campaigns/${campaignId}/withdraws`);
-      console.log("Withdraws API response:", res.status, res.ok);
-      if (res.ok) {
-        const data = await res.json();
-        console.log("Withdraws data:", data);
-        setWithdraws(data);
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Error response:", errorData);
-        alert("Không thể lấy lịch sử rút tiền");
-        setWithdraws([]);
-      }
-    } catch (error) {
-      console.error("Error fetching withdraws:", error);
-      alert("Có lỗi xảy ra");
-      setWithdraws([]);
-    } finally {
-      setLoadingWithdraws(false);
-    }
+    router.push(`/reliefadmin/withdraw-history/${campaignId}`);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-          <p className="mt-4 text-gray-600">Đang tải campaigns...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 flex items-center justify-center">
+        <div className="text-center fade-in">
+          <div className="inline-block h-16 w-16 animate-spin rounded-full border-4 border-white/20 border-t-white mb-6" />
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-white">Đang tải dữ liệu...</h2>
+            <p className="text-gray-300">Vui lòng đợi trong giây lát</p>
+            <div className="flex justify-center mt-4">
+              <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse" style={{width: '60%'}} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -222,40 +241,44 @@ export default function DashboardPage() {
   const activeCampaigns = campaigns.filter(c => c.status === "active").length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        
+
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              🏠 Admin Dashboard
-            </h1>
-            <p className="text-gray-600">
-              Quản lý các chiến dịch cứu trợ trên blockchain
-            </p>
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-4 fade-in">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/reliefadmin")}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition text-sm font-medium flex items-center gap-2"
+            >
+              ← Về Admin
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold gradient-text mb-2">
+                🏠 Admin Dashboard
+              </h1>
+              <p className="text-gray-300">
+                Quản lý các chiến dịch cứu trợ trên blockchain
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                window.open(`${API_URL}/api/v1/campaigns/export/all?format=csv`, '_blank');
-              }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 shadow-sm transition flex items-center gap-2"
+              onClick={() => router.push("/reliefadmin/reports")}
+              className="btn bg-white/10 hover:bg-white/20 text-white"
             >
-              📊 Export CSV
+              📊 Reports
             </button>
             <button
-              onClick={() => {
-                window.open(`${API_URL}/api/v1/campaigns/export/all?format=json`, '_blank');
-              }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 shadow-sm transition flex items-center gap-2"
+              onClick={() => router.push("/reliefadmin/audit-logs")}
+              className="btn bg-white/10 hover:bg-white/20 text-white"
             >
-              📄 Export JSON
+              📋 Audit Logs
             </button>
             <button
               onClick={() => router.push("/reliefadmin/create-campaign")}
-              className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 shadow-sm transition"
+              className="btn btn-success"
             >
               ➕ Tạo Campaign Mới
             </button>
@@ -263,40 +286,50 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Overview - KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <DashboardStatCard
-            icon="📊"
-            label="Tổng Campaigns"
-            value={campaigns.length}
-            color="blue"
-          />
-          <DashboardStatCard
-            icon="✅"
-            label="Đang hoạt động"
-            value={activeCampaigns}
-            color="green"
-          />
-          <DashboardStatCard
-            icon="💰"
-            label="Tổng quyên góp"
-            value={`${totalRaised.toFixed(2)} ETH`}
-            color="purple"
-          />
-          <DashboardStatCard
-            icon="👥"
-            label="Tổng Donors"
-            value={totalDonors}
-            color="orange"
-          />
+        <div className="card p-6 mb-8 fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white">
+              📈 Thống kê tổng quan
+            </h2>
+            <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
+              {campaigns.length} campaigns
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <DashboardStatCard
+              icon="📊"
+              label="Tổng Campaigns"
+              value={campaigns.length}
+              color="blue"
+            />
+            <DashboardStatCard
+              icon="✅"
+              label="Đang hoạt động"
+              value={activeCampaigns}
+              color="green"
+            />
+            <DashboardStatCard
+              icon="💰"
+              label="Tổng quyên góp"
+              value={`${totalRaised.toFixed(2)} ETH`}
+              color="purple"
+            />
+            <DashboardStatCard
+              icon="👥"
+              label="Tổng Donors"
+              value={totalDonors}
+              color="orange"
+            />
+          </div>
         </div>
 
         {/* Campaigns List */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="card p-6 fade-in">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-white">
               📋 Danh sách Campaigns
             </h2>
-            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+            <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
               {campaigns.length} campaigns
             </span>
           </div>
@@ -330,6 +363,7 @@ export default function DashboardPage() {
                   donation_count={campaign.donation_count}
                   status={campaign.status}
                   onchain_id={campaign.onchain_id}
+                  is_visible={campaign.is_visible}
                   showDonateButton={false}
                   showAdminControls={true}
                   onWithdraw={handleWithdraw}
@@ -343,99 +377,6 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* Withdraw History Modal */}
-      {showWithdrawModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowWithdrawModal(false);
-              setSelectedCampaignId(null);
-              setWithdraws([]);
-            }
-          }}
-        >
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">
-                📜 Lịch sử rút tiền
-              </h2>
-              <button
-                onClick={() => {
-                  setShowWithdrawModal(false);
-                  setSelectedCampaignId(null);
-                  setWithdraws([]);
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingWithdraws ? (
-                <div className="text-center py-12">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-                  <p className="mt-4 text-gray-600">Đang tải lịch sử...</p>
-                </div>
-              ) : withdraws.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-5xl mb-4">📭</div>
-                  <p className="text-gray-600 text-lg">Chưa có giao dịch rút tiền nào</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {withdraws.map((withdraw: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                            💰
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              Rút {withdraw.amount_eth?.toFixed(4) || "0.0000"} ETH
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {withdraw.timestamp 
-                                ? new Date(withdraw.timestamp * 1000).toLocaleString("vi-VN", {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit"
-                                  })
-                                : "N/A"}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 font-mono ml-[52px]">
-                          {withdraw.owner ? `${withdraw.owner.slice(0, 10)}...${withdraw.owner.slice(-8)}` : "N/A"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={`https://sepolia.etherscan.io/tx/${withdraw.tx_hash || ""}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition"
-                        >
-                          Etherscan →
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

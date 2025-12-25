@@ -26,6 +26,15 @@ export default function ReliefsPage() {
   const router = useRouter();
   const [items, setItems] = useState<CampaignSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Lấy role từ localStorage
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("role");
+      setUserRole(role);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -85,32 +94,36 @@ export default function ReliefsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        
+
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-4xl font-bold text-white mb-3">
             🌍 Chiến Dịch Cứu Trợ
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
             Quyên góp minh bạch trên blockchain. Mọi giao dịch đều được ghi nhận công khai và có thể kiểm tra.
           </p>
         </div>
 
         {/* Loading State */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 fade-in">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-pulse"
+                className="card overflow-hidden animate-pulse"
               >
-                <div className="w-full h-48 bg-gray-200" />
+                <div className="w-full h-48 bg-gradient-to-br from-gray-700 to-gray-800 shimmer" />
                 <div className="p-5 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-full" />
-                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                  <div className="h-5 bg-white/10 rounded w-3/4" />
+                  <div className="h-4 bg-white/10 rounded w-full" />
+                  <div className="h-4 bg-white/10 rounded w-2/3" />
+                  <div className="flex gap-2 mt-4">
+                    <div className="h-8 bg-white/10 rounded-full w-20" />
+                    <div className="h-8 bg-white/10 rounded-full w-16" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -135,18 +148,27 @@ export default function ReliefsPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-            <div className="text-6xl mb-4">📭</div>
-            <p className="text-gray-600 text-lg mb-2">Chưa có campaign nào</p>
-            <p className="text-gray-500 text-sm mb-6">
-              Bạn có thể tạo campaign trong{" "}
-              <button
-                onClick={() => router.push("/reliefadmin/dashboard")}
-                className="text-emerald-600 hover:text-emerald-700 underline font-medium"
-              >
-                Admin Dashboard
-              </button>
+          <div className="text-center py-20 card fade-in">
+            <div className="text-7xl mb-6 animate-pulse">🌍</div>
+            <h3 className="text-2xl font-bold text-white mb-3">Chưa có chiến dịch nào</h3>
+            <p className="text-gray-300 text-lg mb-6 max-w-md mx-auto">
+              Hiện tại chưa có chiến dịch cứu trợ nào đang hoạt động. Hãy quay lại sau hoặc tạo chiến dịch mới.
             </p>
+            {(userRole === "admin" || userRole === "superadmin") ? (
+              <button
+                onClick={() => router.push("/reliefadmin")}
+                className="btn btn-primary text-lg px-8 py-4"
+              >
+                🏠 Về Admin Dashboard
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/login")}
+                className="btn btn-primary text-lg px-8 py-4"
+              >
+                🔐 Đăng nhập để tạo Campaign
+              </button>
+            )}
           </div>
         )}
 

@@ -18,8 +18,19 @@ CHAIN_ID = int(os.getenv("CHAIN_ID", 11155111))
 DISASTER_FUND_ADDRESS = os.getenv("DISASTER_FUND_ADDRESS")
 
 # CORS origins (comma-separated)
+# Mặc định cho phép localhost:3000 và 127.0.0.1:3000
+default_origins = "http://localhost:3000,http://127.0.0.1:3000"
 FRONTEND_ORIGINS = [
     o.strip()
-    for o in (os.getenv("FRONTEND_ORIGINS") or "http://localhost:3000").split(",")
+    for o in (os.getenv("FRONTEND_ORIGINS") or default_origins).split(",")
     if o.strip()
 ]
+# Debug: print CORS origins
+print(f"🌐 CORS allowed origins: {FRONTEND_ORIGINS}")
+
+# Email/SMTP configuration for password reset
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER")  # Gmail address
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # Gmail App Password
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER)  # From email address

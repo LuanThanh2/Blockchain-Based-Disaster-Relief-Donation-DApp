@@ -1,293 +1,467 @@
 # Blockchain-Based Disaster Relief Donation DApp
 
-Đề tài xây dựng một DApp quyên góp cứu trợ thiên tai theo hướng **minh bạch và dễ kiểm chứng**: mọi giao dịch quyên góp/giải ngân được ghi nhận on-chain, giảm phụ thuộc vào niềm tin vào một bên trung gian.
+Hệ thống quyên góp cứu trợ thiên tai dựa trên blockchain, đảm bảo minh bạch và có thể kiểm chứng. Mọi giao dịch quyên góp và giải ngân được ghi nhận on-chain, giảm thiểu sự phụ thuộc vào bên trung gian.
 
 ## Mục tiêu
 
-- Minh bạch hoá quyên góp: số tiền vào/ra và lịch sử giao dịch có thể kiểm tra công khai.
-- Chuẩn hoá quy trình gây quỹ: tạo chiến dịch (campaign), nhận donate, theo dõi tiến độ, giải ngân.
-- Cung cấp API backend để tích hợp với UI/ứng dụng khác.
+- Minh bạch hóa quyên góp: Tất cả số tiền vào/ra và lịch sử giao dịch có thể kiểm tra công khai trên blockchain
+- Chuẩn hóa quy trình gây quỹ: Tạo chiến dịch, nhận quyên góp, theo dõi tiến độ, và giải ngân
+- Cung cấp API backend để tích hợp với UI và ứng dụng khác
+- Quản lý người dùng và phân quyền: Hệ thống xác thực với vai trò Admin và User
 
-## Kiến trúc
+## Kiến trúc hệ thống
 
-- Smart contract (Solidity): `contracts/DisasterFund.sol` (logic campaign/donate/withdraw).
-- Backend API (Python): `backend/` (FastAPI + web3.py) gọi contract qua RPC.
-- Hardhat (Node.js): cung cấp lệnh `compile`, `test`, và chạy script deploy/kiểm tra trong thư mục `scripts/`.
+### Smart Contract (Solidity)
+- **File**: `contracts/DisasterFund.sol`
+- **Chức năng**: Logic xử lý campaign, donate, withdraw
+- **Events**: `CampaignCreated`, `DonationReceived`, `FundsWithdrawn`
 
-## Hardhat scripts đang có
+### Backend API (Python/FastAPI)
+- **Thư mục**: `backend/`
+- **Framework**: FastAPI + web3.py
+- **Database**: SQLite (có thể chuyển sang PostgreSQL)
+- **Chức năng**: 
+  - RESTful API cho campaigns, donations, withdrawals
+  - Xác thực và phân quyền (JWT)
+  - Quản lý người dùng
+  - Indexer tự động đồng bộ events từ blockchain
+  - Auto-disburse (tự động giải ngân khi đạt ngưỡng)
+  - Audit logs
+  - Báo cáo và xuất dữ liệu
 
-Các file trong `scripts/` là các script chạy bằng Hardhat 
+### Frontend (Next.js/React)
+- **Thư mục**: `Frontend/`
+- **Framework**: Next.js 14+ với TypeScript
+- **Chức năng**:
+  - Trang công khai xem campaigns
+  - Trang quản trị cho admin
+  - Trang quyên góp với MetaMask
+  - Quản lý profile và lịch sử quyên góp
+  - Quản lý users (admin only)
 
-- `scripts/deploy_disaster_fund.js`: deploy contract `DisasterFund`.
-- `scripts/check_deployer_balance.js`: in địa chỉ deployer + số dư ETH.
-- `scripts/print_address_from_pk.js`: in địa chỉ từ private key.
-- `scripts/inspect_account.js`: kiểm tra account (balance/nonce/code) để biết EOA hay contract.
+### Hardhat (Node.js)
+- **Chức năng**: Compile, test, và deploy smart contracts
+- **Scripts**: Trong thư mục `scripts/`
 
-## Chức năng chính
+## Yêu cầu hệ thống
 
-- Tạo campaign với mục tiêu gây quỹ.
-- Quyên góp ETH cho campaign (on-chain).
-- Rút/giải ngân theo logic contract (on-chain).
-- Truy vấn thông tin campaign để hiển thị tiến độ.
+- **Node.js**: LTS version (khuyến nghị 18.x trở lên)
+- **Python**: 3.10 trở lên
+- **npm** hoặc **yarn**
+- **MetaMask** extension (để test quyên góp)
+- **Git**
 
-## Setup & Run (Windows)
+## Cài đặt
 
-> Gợi ý: mở **4 terminal** (Hardhat / Deploy / Backend / Frontend) để chạy mượt.
+### 1. Clone repository
 
-### Yêu cầu trước khi chạy
+```bash
+git clone <repository-url>
+cd Blockchain-Based-Disaster-Relief-Donation-DApp
+```
 
-- Node.js (khuyến nghị LTS) + npm
-- Python 3.10+ (để chạy FastAPI)
+### 2. Cài đặt dependencies cho Hardhat và Frontend
 
-Thư mục quan trọng:
-
-- Hardhat + scripts: `E:\Disaster_Relief_Dapp\` (root)
-- Backend (FastAPI): `E:\Disaster_Relief_Dapp\backend\`
-- Frontend (Next.js): `E:\Disaster_Relief_Dapp\Frontend\`
-
----
-
-## Cách 1: Chạy LOCAL (khuyến nghị để dev/test nhanh)
-
-### Bước 0 — Cài dependencies (chạy 1 lần)
-
-```cmd
-cd /d E:\Disaster_Relief_Dapp
+```bash
+# Cài đặt dependencies cho Hardhat
 npm install
 
-cd /d E:\Disaster_Relief_Dapp\Frontend
+# Cài đặt dependencies cho Frontend
+cd Frontend
 npm install
+cd ..
 ```
 
-- `npm install`: tải thư viện Node theo `package.json`.
+### 3. Cài đặt dependencies cho Backend
 
-### Bước 1 — Terminal A: chạy blockchain local (Hardhat)
-
-```cmd
-cd /d E:\Disaster_Relief_Dapp
-npx hardhat node
-```
-
-- `npx hardhat node`: bật một blockchain giả lập trên máy (thường RPC `http://127.0.0.1:8545`) + tạo sẵn nhiều account có ETH để test.
-- **Giữ terminal này chạy** trong suốt quá trình dev.
-
-### Bước 2 — Terminal B: compile + deploy contract lên local chain
-
-```cmd
-cd /d E:\Disaster_Relief_Dapp
-npx hardhat compile
-npx hardhat run scripts\deploy_disaster_fund.js --network localhost
-```
-
-- `npx hardhat compile`: biên dịch Solidity → ABI/bytecode.
-- `npx hardhat run ... --network localhost`: deploy contract lên Hardhat node.
-
-Sau khi deploy, bạn sẽ thấy **địa chỉ contract** in ra. Copy lại để điền vào backend `.env`.
-
-### Bước 3 — Cấu hình backend `.env` (LOCAL)
-
-Tạo file `E:\Disaster_Relief_Dapp\backend\.env` (nếu chưa có) với tối thiểu:
-
-```dotenv
-CHAIN_ID=31337
-RPC_URL=http://127.0.0.1:8545
-
-# Lấy PRIVATE_KEY từ Terminal A (hardhat node) — account có sẵn ETH
-PRIVATE_KEY=0x...
-
-# Dán địa chỉ contract sau khi deploy ở Bước 2
-DISASTER_FUND_ADDRESS=0x...
-```
-
-### Bước 4 — Terminal C: chạy Backend (FastAPI)
-
-Tạo venv + cài requirements (chạy 1 lần):
-
-```cmd
-cd /d E:\Disaster_Relief_Dapp\backend
+```bash
+cd backend
 python -m venv .venv
-call .venv\Scripts\activate.bat
+
+# Windows
+.venv\Scripts\activate
+
+# Linux/Mac
+source .venv/bin/activate
+
 pip install -r requirements.txt
+cd ..
 ```
 
-Chạy API:
+## Cấu hình
 
-```cmd
-cd /d E:\Disaster_Relief_Dapp\backend
-call .venv\Scripts\activate.bat
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-```
+### 1. Cấu hình Hardhat (cho Sepolia testnet)
 
-- `python -m venv .venv`: tạo môi trường Python riêng cho backend.
-- `pip install -r requirements.txt`: cài FastAPI/web3/uvicorn...
-- `uvicorn main:app --reload`: chạy API tại `http://127.0.0.1:8000` và tự reload khi sửa code.
+Tạo file `.env` ở thư mục root:
 
-Test nhanh:
-
-```cmd
-curl http://127.0.0.1:8000/health
-```
-
-### Bước 5 — Terminal D: chạy Frontend (Next.js)
-
-```cmd
-cd /d E:\Disaster_Relief_Dapp\Frontend
-npm run dev
-```
-
-- `npm run dev`: chạy Next.js dev server tại `http://localhost:3000`.
-
-Mở UI:
-
-- Trang tạo campaign: `http://localhost:3000/reliefadmin/create-campaign`
-
----
-
-## Cách 2: Deploy & chạy trên SEPOLIA (testnet)
-
-### Bước 0 — Cài dependencies (chạy 1 lần)
-
-```cmd
-cd /d E:\Disaster_Relief_Dapp
-npm install
-```
-
-### Bước 1 — Cấu hình `.env` cho Hardhat (SEPOLIA)
-
-Tạo/điền `E:\Disaster_Relief_Dapp\.env` (Hardhat sẽ tự load cả `.env` root và `backend\.env`):
-
-```dotenv
-SEPOLIA_RPC_URL=https://...
+```env
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
 DEPLOYER_PRIVATE_KEY=0x...
-
-# (tuỳ chọn) để Hardhat kiểm tra PK có khớp địa chỉ mong muốn
 EXPECTED_DEPLOYER_ADDRESS=0x...
 ```
 
-### Bước 2 — Compile + deploy lên Sepolia
+### 2. Cấu hình Backend
 
-```cmd
-cd /d E:\Disaster_Relief_Dapp
-npx hardhat compile
-npx hardhat run scripts\deploy_disaster_fund.js --network sepolia
-```
+Tạo file `backend/.env`:
 
-### Bước 3 — Cấu hình backend `.env` trỏ Sepolia
-
-Sửa `E:\Disaster_Relief_Dapp\backend\.env`:
-
-```dotenv
+```env
+# Blockchain Configuration
 CHAIN_ID=11155111
-RPC_URL=https://...
+RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
 PRIVATE_KEY=0x...
-DISASTER_FUND_ADDRESS=0x...   # địa chỉ contract Sepolia vừa deploy
+DISASTER_FUND_ADDRESS=0x...
+
+# Database
+DATABASE_URL=sqlite:///./dev.db
+
+# Server
+BACKEND_PORT=8000
+
+# CORS
+FRONTEND_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# Email Configuration (cho password reset)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM_EMAIL=your-email@gmail.com
 ```
 
-### Bước 4 — Chạy Backend + Frontend
+### 3. Deploy Smart Contract
 
-Backend:
+```bash
+# Compile contract
+npx hardhat compile
 
-```cmd
-cd /d E:\Disaster_Relief_Dapp\backend
-call .venv\Scripts\activate.bat
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Deploy lên Sepolia
+npx hardhat run scripts/deploy_disaster_fund.js --network sepolia
 ```
 
-Frontend:
+Copy địa chỉ contract được in ra và điền vào `DISASTER_FUND_ADDRESS` trong `backend/.env`.
 
-```cmd
-cd /d E:\Disaster_Relief_Dapp\Frontend
+## Chạy ứng dụng
+
+### Cách 1: Chạy trên Sepolia Testnet (Khuyến nghị)
+
+#### Terminal 1: Backend
+
+```bash
+cd backend
+.venv\Scripts\activate  # Windows
+# hoặc source .venv/bin/activate  # Linux/Mac
+
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Backend sẽ chạy tại `http://127.0.0.1:8000`
+
+#### Terminal 2: Frontend
+
+```bash
+cd Frontend
 npm run dev
 ```
 
----
+Frontend sẽ chạy tại `http://localhost:3000`
 
-## Lệnh/script hữu ích
+### Cách 2: Chạy trên Local Hardhat Node
 
-```cmd
-cd /d E:\Disaster_Relief_Dapp
+#### Terminal 1: Hardhat Node
 
-:: In địa chỉ deployer + số dư
-npx hardhat run scripts\check_deployer_balance.js --network sepolia
-
-:: In địa chỉ từ private key
-npx hardhat run scripts\print_address_from_pk.js --network sepolia
-
-:: Kiểm tra account (balance/nonce/code)
-npx hardhat run scripts\inspect_account.js --network sepolia
+```bash
+npx hardhat node
 ```
 
----
+Hardhat node sẽ chạy tại `http://127.0.0.1:8545`
 
-## Troubleshooting nhanh
+#### Terminal 2: Deploy Contract lên Local
 
-- Nếu mở `http://localhost:3000` bị `ERR_CONNECTION_REFUSED`: frontend chưa chạy → chạy `npm run dev` trong `Frontend`.
-- Nếu backend báo thiếu biến môi trường: kiểm tra `backend\.env` có đủ `RPC_URL`, `PRIVATE_KEY`, `DISASTER_FUND_ADDRESS`.
-- Nếu frontend gặp lỗi storage (`localStorage...`): project đã có `Frontend\instrumentation.ts` để tránh crash trong dev.
+```bash
+npx hardhat run scripts/deploy_disaster_fund.js --network localhost
+```
 
-🛠️ Một số việc cần làm
+Copy địa chỉ contract và cập nhật `backend/.env`:
+- `CHAIN_ID=31337`
+- `RPC_URL=http://127.0.0.1:8545`
 
-Tạo chiến dịch gây quỹ (Campaign)
-Tạo campaign với tiêu đề, mô tả, mục tiêu gây quỹ (goal), thời hạn và trạng thái hoạt động.
+#### Terminal 3: Backend
 
-Nhận quyên góp (Donate)
-Người dùng gửi ETH vào campaign; giao dịch được ghi nhận on-chain và tự động cập nhật tổng số tiền quyên góp.
+```bash
+cd backend
+.venv\Scripts\activate
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-Theo dõi & hiển thị tiến độ
-Xem số tiền đã nhận, số lượng người quyên góp và lịch sử các giao dịch donate.
+#### Terminal 4: Frontend
 
-Giải ngân / rút tiền (Withdraw)
-Người quản lý campaign rút tiền theo rule của smart contract (rút toàn bộ hoặc từng phần); mọi giao dịch đều được ghi nhận on-chain.
+```bash
+cd Frontend
+npm run dev
+```
 
-Quản lý campaign
-Bật/tắt campaign, cập nhật thông tin (nếu được cho phép) và đóng campaign khi hoàn thành.
+## Tính năng chính
 
-Báo cáo & minh bạch
-Xuất danh sách giao dịch, tổng thu/chi theo từng campaign và theo dõi log sự kiện (events) từ smart contract.
+### 1. Quản lý Campaigns
 
+- **Tạo campaign**: Admin có thể tạo campaign với metadata (title, description, target amount, deadline, v.v.)
+- **Tạo on-chain**: Tùy chọn tạo campaign trực tiếp trên blockchain
+- **Chỉnh sửa campaign**: Admin có thể cập nhật thông tin campaign
+- **Ẩn/hiện campaign**: Admin có thể ẩn campaign khỏi trang công khai
+- **Tự động giải ngân**: Cấu hình auto-disburse khi đạt ngưỡng phần trăm mục tiêu
 
-## Trạng thái hiện tại (tóm tắt ngắn — một dòng / chức năng)
+### 2. Quyên góp (Donations)
 
-- **Create campaign**: Hoàn thành — frontend form + backend lưu metadata + backend gửi on‑chain trong background. (Files: `Frontend/app/reliefadmin/create-campaign/page.tsx`, `backend/app/routes/campaigns.py`, `backend/app/services/web3_service.py`, `abi/DisasterFund.json`)
-- **Donate**: Chưa có UI/API trong `E:\Disaster_Relief_Dapp` (smart contract đã hỗ trợ `donate`).
-- **Track & display**: Một phần — DB lưu metadata và backend cố parse `CampaignCreated` để lấy `onchain_id`, nhưng thiếu API + frontend pages để hiển thị `raised` / donors / lịch sử donate.
-- **Withdraw**: Smart contract hỗ trợ `withdraw` — UI/API chưa triển khai.
-- **Manage campaign**: DB có trường `status` (cơ sở cho bật/tắt) — thiếu endpoint & UI để bật/tắt hoặc cập nhật campaign.
-- **Reports & events**: Chưa có indexer/endpoint để lưu và tổng hợp `DonationReceived`/`FundsWithdrawn` events.
+- **Quyên góp qua MetaMask**: Người dùng có thể quyên góp ETH trực tiếp từ ví MetaMask
+- **Lịch sử quyên góp**: Người dùng có thể xem lịch sử quyên góp của mình
+- **Đồng bộ tự động**: Backend tự động index các events `DonationReceived` từ blockchain
+- **Hiển thị tiến độ**: Hiển thị số tiền đã quyên góp, số lượng donors, và phần trăm hoàn thành
 
-## Công việc ưu tiên (gợi ý thứ tự để chuyển giao)
+### 3. Rút tiền (Withdrawals)
 
-1. **Thêm Donate UI (ưu tiên cao)**
-	- Tạo `Frontend/app/user/donate/page.tsx` sử dụng MetaMask/ethers.js để user ký và gửi ETH tới hàm `donate(campaignId)` của contract.
-2. **Thêm campaign list/detail pages**
-	- Tạo `Frontend/app/reliefs/page.tsx` và `Frontend/app/reliefs/[slug]/page.tsx` để hiển thị tiến độ, link donate.
-3. **Triển khai endpoint/ indexer cho donations**
-	- Thêm endpoint backend để trả `raised`, `donor_count`, `donations` hoặc triển khai indexer đọc `DonationReceived` events và lưu vào DB.
-4. **Rút tiền (withdraw) & admin controls**
-	- Thêm endpoint/ UI admin để gọi `withdraw` (server‑signed hoặc client‑signed) và controls bật/tắt campaign.
-5. **Báo cáo & export**
-	- Sau khi có bảng `donations`, thêm endpoint xuất CSV/JSON cho báo cáo.
+- **Rút tiền**: Admin có thể rút tiền từ campaign (on-chain)
+- **Lịch sử rút tiền**: Xem tất cả các giao dịch rút tiền của campaign
+- **Tự động giải ngân**: Hệ thống tự động rút tiền khi campaign đạt ngưỡng đã cấu hình
 
-## Checklist chuyển giao (cho người tiếp nhận)
+### 4. Xác thực và Phân quyền
 
-- [ ] Kiểm tra `.env` cho backend: `RPC_URL`, `DISASTER_FUND_ADDRESS`, `DEPLOYER_PRIVATE_KEY`, `DATABASE_URL`.
-- [ ] Khởi động Hardhat node (local) hoặc xác nhận RPC Sepolia + contract address.
-- [ ] Chạy backend (uvicorn) và frontend (Next.js) theo hướng dẫn phía trên.
-- [ ] Tạo campaign từ UI → kiểm tra `POST /api/v1/campaigns/` trả 201 và DB có record mới.
-- [ ] Nếu bật `createOnChain`, kiểm tra log backend (uvicorn) để thấy BG task gửi tx và cập nhật `contract_tx_hash` / `onchain_id`.
-- [ ] Nếu cần donate testing: triển khai donate UI (task ưu tiên 1) hoặc test thủ công bằng scripts/hardhat.
+- **Đăng ký**: Người dùng có thể đăng ký tài khoản mới
+- **Đăng nhập**: Xác thực bằng username/password với JWT
+- **Phân quyền**: 
+  - **Admin**: Quản lý campaigns, users, xem audit logs, báo cáo
+  - **User**: Quyên góp, xem lịch sử quyên góp, quản lý profile
+- **Reset password**: Quên mật khẩu và reset qua OTP email
 
-## Kiểm thử nhanh (test plan ngắn)
+### 5. Quản lý Users (Admin)
 
-1. Chạy Hardhat node hoặc sử dụng Sepolia RPC.
-2. Deploy contract (local) hoặc dùng địa chỉ Sepolia đã deploy.
-3. Cấu hình `backend/.env` với `DISASTER_FUND_ADDRESS` và `DEPLOYER_PRIVATE_KEY` (dev only).
-4. Chạy backend và frontend.
-5. Tạo campaign từ UI → quan sát network request và backend logs.
-6. (Nếu on‑chain) mở Etherscan Sepolia hoặc Hardhat console để kiểm tra transaction receipt và event `CampaignCreated`.
+- **Danh sách users**: Xem tất cả users với filters (role, status, search)
+- **Cập nhật user**: Thay đổi role, email, trạng thái active
+- **Ban/Unban user**: Vô hiệu hóa hoặc kích hoạt lại tài khoản
+- **Xóa user**: Soft delete (set is_active=false)
 
-## Ghi chú an toàn
+### 6. Audit Logs
 
-- `DEPLOYER_PRIVATE_KEY` chỉ dùng cho môi trường phát triển; KHÔNG commit vào git. Dùng vault/KMS cho production.
-- On‑chain actions tiêu tốn gas — đảm bảo private key có ETH trên testnet khi chạy.
+- **Ghi nhận tất cả actions**: Mọi hành động quan trọng đều được ghi lại
+- **Filters**: Lọc theo action, username, thời gian
+- **Chi tiết**: Mỗi log bao gồm username, action, details, timestamp
 
+### 7. Báo cáo và Xuất dữ liệu
+
+- **Báo cáo tổng hợp**: Thống kê tổng campaigns, donations, withdrawals
+- **Top campaigns**: Danh sách campaigns có số tiền quyên góp cao nhất
+- **Xuất sao kê**: Admin có thể xuất sao kê đầy đủ (donations + withdrawals) dạng CSV/JSON
+- **Xuất donations**: User có thể xuất lịch sử donations dạng CSV/JSON
+
+### 8. Profile Management
+
+- **Xem profile**: Thông tin user, email, role, ngày tạo
+- **Liên kết ví**: Kết nối MetaMask wallet với tài khoản
+- **Lịch sử quyên góp**: Xem tất cả donations đã thực hiện
+
+## API Endpoints
+
+### Public Endpoints
+
+- `GET /api/v1/campaigns` - Danh sách campaigns (có thể filter visible_only)
+- `GET /api/v1/campaigns/{id}` - Chi tiết campaign
+- `GET /api/v1/campaigns/{id}/stats` - Thống kê campaign
+- `GET /api/v1/campaigns/{id}/donations` - Danh sách donations của campaign
+
+### Authentication Endpoints
+
+- `POST /api/v1/auth/register` - Đăng ký user mới
+- `POST /api/v1/auth/login` - Đăng nhập
+- `POST /api/v1/auth/forgot-password` - Yêu cầu reset password (gửi OTP)
+- `POST /api/v1/auth/reset-password` - Reset password với OTP
+- `GET /api/v1/auth/me` - Lấy thông tin user hiện tại
+- `PUT /api/v1/auth/me/wallet` - Cập nhật wallet address
+- `DELETE /api/v1/auth/me/wallet` - Xóa liên kết wallet
+
+### Campaign Management (Admin)
+
+- `POST /api/v1/campaigns` - Tạo campaign mới
+- `PUT /api/v1/campaigns/{id}` - Cập nhật campaign
+- `POST /api/v1/campaigns/{id}/toggle-visibility` - Ẩn/hiện campaign
+- `POST /api/v1/campaigns/{id}/create-onchain` - Tạo campaign on-chain
+- `POST /api/v1/campaigns/{id}/sync-donations` - Đồng bộ donations từ blockchain
+- `POST /api/v1/campaigns/{id}/withdraw` - Rút tiền từ campaign
+- `POST /api/v1/campaigns/{id}/set-active` - Bật/tắt campaign (on-chain)
+- `GET /api/v1/campaigns/{id}/withdraws` - Lịch sử rút tiền
+- `GET /api/v1/campaigns/{id}/export/statement` - Xuất sao kê (admin only)
+- `GET /api/v1/campaigns/{id}/export/donations` - Xuất donations (authenticated)
+
+### User Management (Admin)
+
+- `GET /api/v1/admin/users` - Danh sách users (với filters)
+- `GET /api/v1/admin/users/{id}` - Chi tiết user
+- `PUT /api/v1/admin/users/{id}` - Cập nhật user
+- `DELETE /api/v1/admin/users/{id}` - Xóa user (soft delete)
+- `POST /api/v1/admin/users/{id}/toggle-active` - Ban/unban user
+
+### Reports & Analytics (Admin)
+
+- `GET /api/v1/campaigns/admin/reports` - Báo cáo tổng hợp
+- `GET /api/v1/campaigns/admin/audit-logs` - Audit logs với filters
+
+### User Endpoints
+
+- `GET /api/v1/campaigns/my-donations?donor_address=...` - Lịch sử quyên góp của user
+
+## Cấu trúc thư mục
+
+```
+Blockchain-Based-Disaster-Relief-Donation-DApp/
+├── contracts/              # Smart contracts (Solidity)
+│   └── DisasterFund.sol
+├── scripts/                # Hardhat deployment scripts
+│   ├── deploy_disaster_fund.js
+│   ├── check_deployer_balance.js
+│   └── ...
+├── abi/                    # Contract ABIs
+│   └── DisasterFund.json
+├── backend/                # FastAPI backend
+│   ├── app/
+│   │   ├── main.py         # FastAPI app entry point
+│   │   ├── models.py       # SQLModel database models
+│   │   ├── schemas.py      # Pydantic schemas
+│   │   ├── crud.py         # Database operations
+│   │   ├── database.py     # Database setup & migrations
+│   │   ├── config.py       # Configuration
+│   │   ├── routes/         # API routes
+│   │   │   ├── campaigns.py
+│   │   │   ├── auth.py
+│   │   │   └── admin.py
+│   │   ├── services/       # Business logic
+│   │   │   ├── web3_service.py      # Blockchain interactions
+│   │   │   ├── auto_disburse.py     # Auto-disburse job
+│   │   │   └── email_service.py     # Email sending
+│   │   ├── utils/          # Utilities
+│   │   │   ├── jwt.py      # JWT token handling
+│   │   │   ├── security.py # Password hashing
+│   │   │   └── roles.py    # Role definitions
+│   │   └── dependencies/   # FastAPI dependencies
+│   │       └── auth.py     # Authentication dependencies
+│   ├── requirements.txt
+│   └── .env
+├── Frontend/               # Next.js frontend
+│   ├── app/
+│   │   ├── page.tsx        # Home page
+│   │   ├── login/          # Authentication pages
+│   │   ├── register/
+│   │   ├── profile/
+│   │   ├── reliefs/        # Public campaign pages
+│   │   ├── campaigns/      # Campaign detail & donate
+│   │   ├── reliefadmin/    # Admin pages
+│   │   │   ├── dashboard/
+│   │   │   ├── create-campaign/
+│   │   │   ├── edit-campaign/
+│   │   │   ├── users/
+│   │   │   ├── audit-logs/
+│   │   │   └── reports/
+│   │   └── components/     # React components
+│   ├── package.json
+│   └── .env.local
+├── hardhat.config.js       # Hardhat configuration
+├── package.json
+└── README.md
+```
+
+## Database Schema
+
+### Tables
+
+- **campaign**: Lưu metadata của campaigns
+- **donation**: Lưu lịch sử quyên góp (đồng bộ từ blockchain)
+- **withdrawlog**: Lưu lịch sử rút tiền (đồng bộ từ blockchain)
+- **user**: Thông tin người dùng, xác thực
+- **auditlog**: Log tất cả các actions quan trọng
+- **passwordresetotp**: OTP codes cho password reset
+
+## Bảo mật
+
+### Backend
+
+- **JWT Authentication**: Tất cả endpoints (trừ public) yêu cầu JWT token
+- **Password Hashing**: Sử dụng bcrypt_sha256 (passlib)
+- **Role-based Access Control**: Phân quyền Admin/User
+- **CORS**: Cấu hình CORS để chỉ cho phép origins được chỉ định
+- **Input Validation**: Pydantic schemas validate tất cả inputs
+- **SQL Injection Protection**: SQLModel/SQLAlchemy ORM tự động escape
+
+### Smart Contract
+
+- **Access Control**: Chỉ owner có thể rút tiền
+- **Reentrancy Protection**: Sử dụng checks-effects-interactions pattern
+- **Safe Math**: Solidity 0.8+ tự động kiểm tra overflow/underflow
+
+### Lưu ý
+
+- **Private Keys**: KHÔNG commit private keys vào git. Sử dụng `.env` và thêm vào `.gitignore`
+- **Production**: Sử dụng secrets manager (AWS Secrets Manager, HashiCorp Vault) cho production
+- **HTTPS**: Luôn sử dụng HTTPS trong production
+- **Rate Limiting**: Cân nhắc thêm rate limiting cho các endpoints public
+
+## Troubleshooting
+
+### Backend không khởi động
+
+- Kiểm tra `.env` có đủ các biến: `RPC_URL`, `DISASTER_FUND_ADDRESS`, `PRIVATE_KEY`
+- Kiểm tra Python version: `python --version` (cần 3.10+)
+- Kiểm tra virtual environment đã activate chưa
+- Kiểm tra dependencies: `pip install -r requirements.txt`
+
+### Frontend không kết nối được Backend
+
+- Kiểm tra backend đang chạy tại `http://127.0.0.1:8000`
+- Kiểm tra CORS configuration trong `backend/app/config.py`
+- Kiểm tra `NEXT_PUBLIC_API_URL` trong `Frontend/.env.local` (nếu có)
+
+### MetaMask không kết nối
+
+- Kiểm tra MetaMask đã cài đặt và unlock
+- Kiểm tra network: Sepolia testnet (Chain ID: 11155111) hoặc Localhost (Chain ID: 31337)
+- Kiểm tra account có ETH để trả gas fee
+
+### Transaction failed
+
+- Kiểm tra account có đủ ETH để trả gas
+- Kiểm tra RPC URL có hoạt động không
+- Kiểm tra contract address đúng chưa
+- Xem logs trong backend console để biết lỗi chi tiết
+
+### Database migration errors
+
+- Database sẽ tự động migrate khi khởi động backend
+- Nếu có lỗi, có thể xóa `backend/dev.db` và tạo lại (mất dữ liệu)
+- Hoặc chạy migration thủ công trong `backend/app/database.py`
+
+## Development
+
+### Chạy tests
+
+```bash
+# Hardhat tests
+npx hardhat test
+
+# Backend tests (nếu có)
+cd backend
+pytest
+```
+
+### Code style
+
+- **Python**: Tuân thủ PEP 8
+- **TypeScript**: Sử dụng ESLint và Prettier
+- **Solidity**: Tuân thủ Solidity Style Guide
+
+## License
+
+[Thêm license nếu có]
+
+## Contributors
+
+[Thêm danh sách contributors nếu có]
+
+## Liên hệ
+
+[Thêm thông tin liên hệ nếu cần]

@@ -18,6 +18,8 @@ type FormState = {
   beneficiary: string;
   deadline: string; // yyyy-mm-dd
   createOnChain: boolean;
+  auto_disburse: boolean;
+  disburse_threshold: number;
 };
 
 // ===== Spinner =====
@@ -70,6 +72,8 @@ export default function CreateCampaignPage() {
     beneficiary: "",
     deadline: "",
     createOnChain: false,
+    auto_disburse: false,
+    disburse_threshold: 0.8,
   });
 
   const [loading, setLoading] = useState(false);
@@ -126,6 +130,9 @@ export default function CreateCampaignPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[Create Campaign] Form submitted");
+    console.log("[Create Campaign] Form data:", form);
+    
     setError(null);
     setSuccess(false);
     setTxHash(null);
@@ -134,10 +141,14 @@ export default function CreateCampaignPage() {
     setOnchainStatus("idle");
 
     const v = validate();
+    console.log("[Create Campaign] Validation result:", v);
     if (v) {
+      console.error("[Create Campaign] Validation failed:", v);
       setError(v);
       return;
     }
+    
+    console.log("[Create Campaign] Validation passed, proceeding...");
 
     setLoading(true);
 
@@ -152,21 +163,44 @@ export default function CreateCampaignPage() {
         beneficiary: form.beneficiary.trim(),
         deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
         createOnChain: form.createOnChain,
+        auto_disburse: form.auto_disburse,
+        disburse_threshold: form.disburse_threshold,
       };
+
+      // Lấy token từ localStorage
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        setError("Bạn chưa đăng nhập. Vui lòng đăng nhập lại.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("[Create Campaign] Sending request to:", `${API_URL}/api/v1/campaigns/`);
+      console.log("[Create Campaign] Payload:", payload);
 
       const res = await fetch(`${API_URL}/api/v1/campaigns/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
+        headers: { 
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
       });
+
+      console.log("[Create Campaign] Response status:", res.status);
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try {
-          const data = await res.json();
-          setServerErrorDetails(data);
-          msg = data?.detail || data?.error || JSON.stringify(data);
-        } catch {}
+          const errorData = await res.json();
+          console.error("[Create Campaign] Error response:", errorData);
+          setServerErrorDetails(errorData);
+          msg = errorData?.detail || errorData?.error || JSON.stringify(errorData);
+        } catch (e) {
+          console.error("[Create Campaign] Failed to parse error response:", e);
+          const text = await res.text();
+          console.error("[Create Campaign] Error text:", text);
+        }
         throw new Error(msg);
       }
 
@@ -201,8 +235,8 @@ export default function CreateCampaignPage() {
         }
       }
     } catch (err: any) {
+      console.error("[Create Campaign] Error:", err);
       setError(err?.message || String(err));
-    } finally {
       setLoading(false);
     }
   };
@@ -287,6 +321,39 @@ export default function CreateCampaignPage() {
                 <span className="text-sm font-medium text-white">{form.createOnChain ? "Bật" : "Tắt"}</span>
               </label>
             </div>
+
+            {/* Auto-disburse toggle */}
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div>
+                <div className="text-sm font-medium text-white">Tự động rút tiền</div>
+                <div className="mt-1 text-xs text-gray-300">
+                  Tự động rút tiền khi đạt ngưỡng phần trăm mục tiêu.
+                </div>
+              </div>
+
+              <label className="inline-flex cursor-pointer items-center gap-3">
+                <input type="checkbox" name="auto_disburse" checked={form.auto_disburse} onChange={handleChange} className="h-5 w-5 rounded border-white/20 bg-transparent"/>
+                <span className="text-sm font-medium text-white">{form.auto_disburse ? "Bật" : "Tắt"}</span>
+              </label>
+            </div>
+
+            {/* Disburse threshold */}
+            {form.auto_disburse && (
+              <Field label="Ngưỡng tự động rút" hint="Tỷ lệ phần trăm (0.0 - 1.0). Ví dụ: 0.8 = tự động rút khi đạt 80% mục tiêu.">
+                <input 
+                  name="disburse_threshold" 
+                  type="number" 
+                  step="0.1" 
+                  min="0" 
+                  max="1" 
+                  value={form.disburse_threshold} 
+                  onChange={handleChange} 
+                  className="input" 
+                  placeholder="0.8"
+                  aria-label="Ngưỡng tự động rút"
+                />
+              </Field>
+            )}
 
             <button type="submit" disabled={!canSubmit} className={`w-full rounded-2xl px-5 py-3 text-sm font-semibold transition ${canSubmit ? "bg-gradient-to-r from-indigo-600 to-purple-700 text-white hover:scale-[1.02]" : "cursor-not-allowed bg-gray-600 text-gray-400"}`}>
               {loading ? <span className="inline-flex items-center gap-2"><Spinner /> Đang tạo...</span> : "Tạo Campaign"}

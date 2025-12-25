@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ethers } from "ethers";
 import DonateCard from "../../../components/DonateCard";
 import ProgressBar from "../../../components/ProgressBar";
+import TransactionHistory from "../../../components/TransactionHistory";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const CONTRACT_ADDRESS = "0x8DB43031693D2d9A45bAE5e0d1E4c01e74B98cdE";
@@ -43,6 +44,16 @@ export default function DonatePage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [wrongNetwork, setWrongNetwork] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Check authentication
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      // Guest chưa đăng nhập - redirect về login
+      router.replace("/login");
+      return;
+    }
+  }, [router]);
 
   // Fetch campaign stats
   useEffect(() => {
@@ -402,7 +413,7 @@ export default function DonatePage() {
             </div>
 
             {/* Network Info */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
               <p className="text-xs font-semibold text-blue-900 mb-1 flex items-center gap-2">
                 <span>🔗</span> Ethereum Sepolia Testnet
               </p>
@@ -410,6 +421,9 @@ export default function DonatePage() {
                 Giao dịch của bạn sẽ được ghi nhận on-chain và có thể kiểm tra trên Etherscan.
               </p>
             </div>
+
+            {/* Transaction History */}
+            <TransactionHistory campaignId={parseInt(campaignId)} />
           </div>
 
           {/* Cột phải - Donate Card */}

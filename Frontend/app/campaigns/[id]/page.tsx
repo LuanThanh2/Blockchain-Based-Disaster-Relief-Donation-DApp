@@ -46,6 +46,7 @@ export default function CampaignDetailPage() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [wrongNetwork, setWrongNetwork] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const fetchCampaignStats = async () => {
     try {
@@ -115,6 +116,14 @@ export default function CampaignDetailPage() {
     const interval = setInterval(fetchCampaignStats, 30000);
     return () => clearInterval(interval);
   }, [campaignId]);
+
+  // Get user role from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("role");
+      setUserRole(role);
+    }
+  }, []);
 
   // Check existing wallet connection
   useEffect(() => {
@@ -311,60 +320,205 @@ export default function CampaignDetailPage() {
               </div>
             )}
             
-                  <button
-                    onClick={syncDonations}
-                    disabled={syncing}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition text-sm font-medium"
-                  >
-                    {syncing ? (
-                      <>
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                        Đang đồng bộ...
-                      </>
-                    ) : (
-                      <>🔄 Đồng bộ Donations</>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/transactions/export?format=csv`, '_blank');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
-                    title="Xuất tất cả giao dịch (donations + withdraws) ra CSV"
-                  >
-                    📊 Export CSV (All)
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/transactions/export?format=json`, '_blank');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
-                    title="Xuất tất cả giao dịch (donations + withdraws) ra JSON"
-                  >
-                    📄 Export JSON (All)
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/donations/export?format=csv`, '_blank');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                    title="Chỉ xuất donations ra CSV"
-                  >
-                    💝 Donations CSV
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      window.open(`${API_URL}/api/v1/campaigns/${campaignId}/withdraws/export?format=csv`, '_blank');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm font-medium"
-                    title="Chỉ xuất withdraws ra CSV"
-                  >
-                    💰 Withdraws CSV
-                  </button>
+            {/* User Export - Show for all logged-in users */}
+            {userRole && userRole !== "guest" && (
+              <>
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem("access_token");
+                    if (!token) {
+                      alert("Vui lòng đăng nhập để xuất báo cáo");
+                      return;
+                    }
+                    
+                    try {
+                      const res = await fetch(
+                        `${API_URL}/api/v1/campaigns/${campaignId}/export/donations?format=csv`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                      );
+                      
+                      if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                      }
+                      
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `campaign_${campaignId}_donations_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch (err: any) {
+                      console.error("Export error:", err);
+                      alert("Không thể xuất báo cáo: " + (err.message || "Lỗi không xác định"));
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium"
+                  title="Xuất báo cáo donations (CSV) - Chỉ bao gồm quyên góp, không có withdrawals"
+                >
+                  📊 Xuất Donations CSV
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem("access_token");
+                    if (!token) {
+                      alert("Vui lòng đăng nhập để xuất báo cáo");
+                      return;
+                    }
+                    
+                    try {
+                      const res = await fetch(
+                        `${API_URL}/api/v1/campaigns/${campaignId}/export/donations?format=json`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                      );
+                      
+                      if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                      }
+                      
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `campaign_${campaignId}_donations_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch (err: any) {
+                      console.error("Export error:", err);
+                      alert("Không thể xuất báo cáo: " + (err.message || "Lỗi không xác định"));
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition text-sm font-medium"
+                  title="Xuất báo cáo donations (JSON) - Chỉ bao gồm quyên góp"
+                >
+                  📄 Xuất Donations JSON
+                </button>
+              </>
+            )}
+            
+            {/* Admin Controls - Only show for admin */}
+            {(userRole === "admin" || userRole === "superadmin") && (
+              <>
+                <button
+                  onClick={() => router.push(`/reliefadmin/edit-campaign/${campaignId}`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium"
+                >
+                  ✏️ Chỉnh sửa Campaign
+                </button>
+                <button
+                  onClick={syncDonations}
+                  disabled={syncing}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition text-sm font-medium"
+                >
+                  {syncing ? (
+                    <>
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                      Đang đồng bộ...
+                    </>
+                  ) : (
+                    <>🔄 Đồng bộ Donations</>
+                  )}
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem("access_token");
+                    if (!token) {
+                      alert("Vui lòng đăng nhập để xuất báo cáo");
+                      return;
+                    }
+                    
+                    try {
+                      const res = await fetch(
+                        `${API_URL}/api/v1/campaigns/${campaignId}/export/statement?format=csv`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                      );
+                      
+                      if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                      }
+                      
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `campaign_${campaignId}_statement_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch (err: any) {
+                      console.error("Export error:", err);
+                      alert("Không thể xuất báo cáo: " + (err.message || "Lỗi không xác định"));
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                  title="Xuất báo cáo sao kê ngân hàng đầy đủ (CSV) - Bao gồm cả donations và withdrawals (Admin only)"
+                >
+                  📊 Xuất Sao Kê Đầy Đủ CSV
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem("access_token");
+                    if (!token) {
+                      alert("Vui lòng đăng nhập để xuất báo cáo");
+                      return;
+                    }
+                    
+                    try {
+                      const res = await fetch(
+                        `${API_URL}/api/v1/campaigns/${campaignId}/export/statement?format=json`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                      );
+                      
+                      if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                      }
+                      
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `campaign_${campaignId}_statement_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch (err: any) {
+                      console.error("Export error:", err);
+                      alert("Không thể xuất báo cáo: " + (err.message || "Lỗi không xác định"));
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium"
+                  title="Xuất báo cáo sao kê ngân hàng đầy đủ (JSON) - Bao gồm cả donations và withdrawals (Admin only)"
+                >
+                  📄 Xuất Sao Kê Đầy Đủ JSON
+                </button>
+                
+              </>
+            )}
           </div>
         </div>
 
@@ -537,7 +691,18 @@ export default function CampaignDetailPage() {
 
             {/* Donate Button */}
             <button
-              onClick={() => router.push(`/campaigns/${campaignId}/donate`)}
+              onClick={() => {
+                const token = localStorage.getItem("access_token");
+                if (!token) {
+                  // Guest chưa đăng nhập - redirect về login
+                  if (confirm("Bạn cần đăng nhập để quyên góp. Bạn có muốn đăng nhập ngay không?")) {
+                    router.push("/login");
+                  }
+                } else {
+                  // Đã đăng nhập - cho phép quyên góp
+                  router.push(`/campaigns/${campaignId}/donate`);
+                }
+              }}
               className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 shadow-sm transition"
             >
               💝 Quyên góp ngay
