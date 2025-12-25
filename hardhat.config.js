@@ -14,7 +14,6 @@ function normalizeAmoyRpcUrl(value) {
   return trimmed;
 }
 
-// Prefer a generic RPC_URL if provided. Fall back to network-specific env vars.
 const rpcUrl = normalizeAmoyRpcUrl(process.env.RPC_URL || "") || "";
 const amoyUrl =
   normalizeAmoyRpcUrl(process.env.AMOY_RPC_URL) || rpcUrl ||
@@ -22,16 +21,15 @@ const amoyUrl =
 const sepoliaUrl =
   normalizeAmoyRpcUrl(process.env.SEPOLIA_RPC_URL) || rpcUrl ||
   "https://ethereum-sepolia-rpc.publicnode.com";
+
 const deployerPrivateKey =
   process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY;
-const expectedDeployerAddress = process.env.EXPECTED_DEPLOYER_ADDRESS;
 
 function normalizePrivateKey(value) {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
   if (trimmed.length === 0) return trimmed;
   if (trimmed.startsWith("0x")) return trimmed;
-  // Allow 64-hex keys without 0x prefix (common when copy/pasting)
   if (/^[0-9a-fA-F]{64}$/.test(trimmed)) return `0x${trimmed}`;
   return trimmed;
 }
@@ -39,7 +37,7 @@ function normalizePrivateKey(value) {
 function assertNonEmptyString(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(
-      `Missing ${name}. Set it in E:\\Disaster_Relief_Dapp\\.env (or backend\\.env) as KEY=value (no spaces around '=').`
+      `Missing ${name}. Set it in E:\\Disaster_Relief_Dapp\\.env`
     );
   }
 }
@@ -48,71 +46,39 @@ function assertPrivateKey(value, name) {
   assertNonEmptyString(value, name);
   const normalized = normalizePrivateKey(value);
   if (!normalized.startsWith("0x") || normalized.length !== 66) {
-    throw new Error(
-      `${name} must be a 32-byte hex private key with 0x prefix (length 66).`
-    );
+    throw new Error(`${name} must be a 32-byte hex private key`);
   }
 }
 
-assertNonEmptyString(amoyUrl, "AMOY_RPC_URL (or RPC_URL)");
+assertNonEmptyString(amoyUrl, "AMOY_RPC_URL");
 
-// Only validate private key if it's provided (allow running hardhat node without it)
 let normalizedDeployerPrivateKey = "";
 if (deployerPrivateKey) {
-  assertPrivateKey(deployerPrivateKey, "DEPLOYER_PRIVATE_KEY (or PRIVATE_KEY)");
+  assertPrivateKey(deployerPrivateKey, "DEPLOYER_PRIVATE_KEY");
   normalizedDeployerPrivateKey = normalizePrivateKey(deployerPrivateKey);
 }
 
-if (normalizedDeployerPrivateKey && typeof expectedDeployerAddress === "string" && expectedDeployerAddress.trim()) {
-  const { Wallet } = require("ethers");
-  const derived = new Wallet(normalizedDeployerPrivateKey).address;
-  const expected = expectedDeployerAddress.trim();
-  console.log(
-    "[hardhat] expected deployer:",
-    `${expected.slice(0, 6)}...${expected.slice(-4)}`
-  );
-  console.log(
-    "[hardhat] derived deployer:",
-    `${derived.slice(0, 6)}...${derived.slice(-4)}`
-  );
-  if (derived.toLowerCase() !== expected.toLowerCase()) {
-    throw new Error(
-      [
-        "Deployer private key does NOT match EXPECTED_DEPLOYER_ADDRESS.",
-        `  derived:  ${derived}`,
-        `  expected: ${expected}`,
-        "Fix E:\\Disaster_Relief_Dapp\\.env DEPLOYER_PRIVATE_KEY to the key for the expected address.",
-      ].join("\n")
-    );
-  }
-}
-
-try {
-  const u = new URL(amoyUrl);
-  console.log("[hardhat] amoy rpc host:", u.host);
-} catch {
-  console.log("[hardhat] amoy rpc host: <invalid url>");
-}
-
-try {
-  const u = new URL(sepoliaUrl);
-  console.log("[hardhat] sepolia rpc host:", u.host);
-} catch {
-  console.log("[hardhat] sepolia rpc host: <invalid url>");
-}
-
+// ========== CONFIG ==========
 const config = {
   solidity: "0.8.28",
-  networks: {},
+
+  networks: {
+    hardhat: {
+      chainId: 31337,
+      host: "0.0.0.0",
+      port: 30001,   
+    },
+  },
 };
 
-// Only add networks if private key is provided
+// Thêm mạng ngoài nếu có private key
 if (normalizedDeployerPrivateKey) {
   config.networks.amoy = {
     url: amoyUrl,
     accounts: [normalizedDeployerPrivateKey],
     chainId: 80002,
   };
+
   config.networks.sepolia = {
     url: sepoliaUrl,
     accounts: [normalizedDeployerPrivateKey],

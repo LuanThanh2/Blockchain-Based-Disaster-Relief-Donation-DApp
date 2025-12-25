@@ -224,10 +224,18 @@ export default function CampaignDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-          <p className="mt-4 text-gray-600">Đang tải thông tin chiến dịch...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 flex items-center justify-center">
+        <div className="text-center fade-in">
+          <div className="inline-block h-16 w-16 animate-spin rounded-full border-4 border-white/20 border-t-white mb-6" />
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-white">Đang tải chiến dịch...</h2>
+            <p className="text-gray-300">Vui lòng đợi trong giây lát</p>
+            <div className="flex justify-center mt-4">
+              <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full animate-pulse" style={{width: '70%'}} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -235,11 +243,11 @@ export default function CampaignDetailPage() {
 
   if (!campaign) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="text-6xl mb-4">🔍</div>
-          <p className="text-2xl font-bold text-gray-900 mb-2">Không tìm thấy campaign</p>
-          <p className="text-gray-600 mb-6">Campaign này có thể đã bị xóa hoặc không tồn tại.</p>
+          <p className="text-2xl font-bold text-white mb-2">Không tìm thấy campaign</p>
+          <p className="text-gray-300 mb-6">Campaign này có thể đã bị xóa hoặc không tồn tại.</p>
           <button
             onClick={() => router.push("/reliefadmin/dashboard")}
             className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 shadow-sm transition"
@@ -255,7 +263,7 @@ export default function CampaignDetailPage() {
   const remaining = Math.max(campaign.target_amount - campaign.total_raised, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         
         {/* Header */}
@@ -273,7 +281,7 @@ export default function CampaignDetailPage() {
               <button
                 onClick={connectWallet}
                 disabled={isConnecting}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black disabled:opacity-50 transition text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg disabled:opacity-50 transition text-sm font-medium"
               >
                 {isConnecting ? (
                   <>
@@ -285,9 +293,9 @@ export default function CampaignDetailPage() {
                 )}
               </button>
             ) : (
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
-                <span className="text-gray-600">Ví:</span>
-                <span className="font-mono font-semibold text-gray-900">
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-sm">
+                <span className="text-gray-300">Ví:</span>
+                <span className="font-mono font-semibold text-white">
                   {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                 </span>
                 {wrongNetwork && (
@@ -303,7 +311,7 @@ export default function CampaignDetailPage() {
                     setWalletAddress(null);
                     setWrongNetwork(false);
                   }}
-                  className="ml-2 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-semibold hover:bg-gray-300"
+                  className="ml-2 px-2 py-1 bg-white/20 text-gray-300 rounded text-xs font-semibold hover:bg-white/30"
                   title="Ngắt kết nối ví"
                 >
                   ✕
@@ -389,20 +397,20 @@ export default function CampaignDetailPage() {
             </div>
 
             {/* Campaign Info */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">
+            <div className="card p-6">
+              <h1 className="text-3xl font-bold text-white mb-3">
                 {campaign.title}
               </h1>
-              
+
               {campaign.short_desc && (
-                <p className="text-lg text-gray-600 mb-6">
+                <p className="text-lg text-gray-300 mb-6">
                   {campaign.short_desc}
                 </p>
               )}
-              
+
               {campaign.description && (
                 <div className="prose prose-slate max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">
                     {campaign.description}
                   </p>
                 </div>
@@ -483,21 +491,21 @@ export default function CampaignDetailPage() {
           <div className="space-y-6">
             
             {/* Progress Card */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">
+            <div className="card p-6">
+              <h3 className="text-sm font-medium text-gray-400 mb-4 uppercase tracking-wider">
                 Tiến độ gây quỹ
               </h3>
-              
+
               <div className="mb-6">
                 <div className="flex items-baseline justify-between mb-4">
-                  <span className="text-3xl font-bold text-gray-900">
+                  <span className="text-3xl font-bold text-white">
                     {campaign.total_raised.toFixed(2)}
                   </span>
-                  <span className="text-lg text-gray-600">
+                  <span className="text-lg text-gray-300">
                     / {campaign.target_amount} ETH
                   </span>
                 </div>
-                
+
                 <ProgressBar
                   current={campaign.total_raised}
                   target={campaign.target_amount}
@@ -505,29 +513,29 @@ export default function CampaignDetailPage() {
                 />
               </div>
 
-              <div className="space-y-3 pt-6 border-t border-gray-100">
+              <div className="space-y-3 pt-6 border-t border-white/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
+                  <span className="text-sm text-gray-300 flex items-center gap-2">
                     <span>👥</span> Donors
                   </span>
-                  <span className="font-bold text-lg text-gray-900">{campaign.donor_count}</span>
+                  <span className="font-bold text-lg text-white">{campaign.donor_count}</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
+                  <span className="text-sm text-gray-300 flex items-center gap-2">
                     <span>💰</span> Donations
                   </span>
-                  <span className="font-bold text-lg text-gray-900">{campaign.donation_count}</span>
+                  <span className="font-bold text-lg text-white">{campaign.donation_count}</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
+                  <span className="text-sm text-gray-300 flex items-center gap-2">
                     <span>📊</span> Trạng thái
                   </span>
                   <span className={`px-3 py-1 text-xs rounded-full font-semibold ${
-                    campaign.status === "active" 
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-gray-100 text-gray-600"
+                    campaign.status === "active"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-gray-500/20 text-gray-400"
                   }`}>
                     {campaign.status === "active" ? "Đang hoạt động" : "Đã đóng"}
                   </span>

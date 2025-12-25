@@ -19,22 +19,22 @@ export default function DashboardStatCard({
   };
 
   const textColorClasses = {
-    blue: "text-blue-600",
-    green: "text-emerald-600",
-    purple: "text-purple-600",
-    orange: "text-orange-600",
+    blue: "text-blue-400",
+    green: "text-emerald-400",
+    purple: "text-purple-400",
+    orange: "text-orange-400",
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition">
+    <div className="bg-white/10 rounded-xl border border-white/20 shadow-lg p-6 hover:bg-white/20 hover:shadow-xl transition-all duration-300 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-4">
         <div
-          className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center text-white text-xl shadow-sm`}
+          className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center text-white text-xl shadow-lg`}
         >
           {icon}
         </div>
       </div>
-      <p className="text-sm text-gray-600 mb-2">{label}</p>
+      <p className="text-sm text-gray-300 mb-2">{label}</p>
       <p className={`text-3xl font-bold ${textColorClasses[color]}`}>{value}</p>
     </div>
   );

@@ -43,8 +43,8 @@ export default function CampaignCard({
   return (
     <div
       onClick={() => !showDonateButton && router.push(`/campaigns/${id}`)}
-      className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all ${
-        !showDonateButton ? "cursor-pointer" : ""
+      className={`card overflow-hidden hover:shadow-card-hover transition-all duration-300 fade-in ${
+        !showDonateButton ? "cursor-pointer hover:scale-105" : ""
       }`}
     >
       {/* Image */}
@@ -64,14 +64,14 @@ export default function CampaignCard({
       <div className="p-5">
         {/* Title & Status */}
         <div className="flex items-start justify-between gap-3 mb-2">
-          <h3 className="font-semibold text-gray-900 text-lg line-clamp-2 flex-1">
+          <h3 className="font-semibold text-white text-lg line-clamp-2 flex-1 hover:text-primary transition-colors duration-200">
             {title}
           </h3>
           <span
-            className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
               status === "active"
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-gray-100 text-gray-600"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-500/50"
+                : "bg-gray-500/20 text-gray-300 border border-gray-500/30 hover:bg-gray-500/30 hover:border-gray-500/50"
             }`}
           >
             {status === "active" ? "Đang hoạt động" : "Đã đóng"}
@@ -80,7 +80,7 @@ export default function CampaignCard({
 
         {/* Short Description */}
         {short_desc && (
-          <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+          <p className="text-sm text-gray-300 line-clamp-2 mb-4">
             {short_desc}
           </p>
         )}
@@ -94,19 +94,19 @@ export default function CampaignCard({
         />
 
         {/* Stats */}
-        <div className="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between text-xs text-gray-400 pt-4 border-t border-white/10 hover:text-gray-300 transition-colors duration-200">
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 hover:text-emerald-400 transition-colors duration-200">
               <span>👥</span>
               {donor_count} donors
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 hover:text-blue-400 transition-colors duration-200">
               <span>💰</span>
               {donation_count} donations
             </span>
           </div>
           {onchain_id && (
-            <span className="text-gray-400 font-mono text-[10px]">
+            <span className="text-gray-400 font-mono text-[10px] hover:text-primary transition-colors duration-200">
               #{onchain_id}
             </span>
           )}
@@ -119,7 +119,7 @@ export default function CampaignCard({
               e.stopPropagation();
               router.push(`/campaigns/${id}/donate`);
             }}
-            className="mt-4 w-full py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition"
+            className="mt-4 w-full btn btn-success text-base py-3 hover:scale-105 active:scale-95"
           >
             💝 Quyên góp ngay
           </button>
@@ -127,14 +127,14 @@ export default function CampaignCard({
 
         {/* Admin Controls */}
         {showAdminControls && (
-          <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+          <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
             <div className="flex gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onWithdraw?.(id);
                 }}
-                className="flex-1 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition"
+                className="flex-1 btn btn-primary text-xs"
               >
                 💰 Rút tiền
               </button>
@@ -143,10 +143,8 @@ export default function CampaignCard({
                   e.stopPropagation();
                   onToggleStatus?.(id, status);
                 }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                  status === "active"
-                    ? "bg-gray-600 text-white hover:bg-gray-700"
-                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                className={`flex-1 btn text-xs ${
+                  status === "active" ? "btn-danger" : "btn-success"
                 }`}
               >
                 {status === "active" ? "🔒 Đóng" : "✅ Bật"}
@@ -158,7 +156,7 @@ export default function CampaignCard({
                   e.stopPropagation();
                   router.push(`/campaigns/${id}`);
                 }}
-                className="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-200 transition"
+                className="flex-1 btn text-xs bg-white/10 hover:bg-white/20 text-white"
               >
                 👁️ Xem chi tiết
               </button>
@@ -167,7 +165,7 @@ export default function CampaignCard({
                   e.stopPropagation();
                   onViewWithdraws?.(id);
                 }}
-                className="flex-1 py-2 bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg hover:bg-purple-200 transition"
+                className="flex-1 btn text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-500/30"
               >
                 📜 Lịch sử rút
               </button>

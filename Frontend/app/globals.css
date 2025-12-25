@@ -2,11 +2,20 @@
 :root {
   --bg-page: linear-gradient(to bottom right, #0f172a, #000000, #1e293b);
   --bg-card: rgba(255, 255, 255, 0.05);
+  --bg-card-hover: rgba(255, 255, 255, 0.08);
   --border-card: rgba(255, 255, 255, 0.12);
   --text-muted: #94a3b8;
+  --text-secondary: #cbd5e1;
   --primary: #38bdf8;
+  --primary-hover: #0ea5e9;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
   --radius: 18px;
+  --radius-sm: 12px;
   --shadow-card: 0 12px 32px rgba(0,0,0,0.45);
+  --shadow-card-hover: 0 20px 40px rgba(0,0,0,0.6);
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Reset */
@@ -34,29 +43,85 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 12px 20px;
   border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
   border: 1px solid var(--border-card);
   background: rgba(255,255,255,0.08);
   color: white;
-  transition: all 0.2s ease;
+  transition: var(--transition);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
 .btn:hover {
   background: rgba(255,255,255,0.15);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+.btn:active {
+  transform: translateY(0);
 }
 
 /* Primary Button */
 .btn-primary {
-  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   border: none;
   color: black;
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
 }
+
 .btn-primary:hover {
-  opacity: 0.9;
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary));
+  box-shadow: 0 8px 25px rgba(56, 189, 248, 0.4);
+  transform: translateY(-3px);
+}
+
+/* Success Button */
+.btn-success {
+  background: linear-gradient(135deg, var(--success), #059669);
+  border: none;
+  color: white;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669, var(--success));
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+  transform: translateY(-3px);
+}
+
+/* Danger Button */
+.btn-danger {
+  background: linear-gradient(135deg, var(--error), #dc2626);
+  border: none;
+  color: white;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, var(--error));
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+  transform: translateY(-3px);
 }
 
 /* Inputs & Textareas */
@@ -105,6 +170,67 @@ a:hover { color: #0ea5e9; }
 @media (min-width: 640px) { .sm-grid-cols-2 { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1024px) { .lg-grid-cols-3 { grid-template-columns: repeat(3, 1fr); } }
 
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Scrollbar for pre/code */
 pre { overflow-x: auto; }
 code { font-family: 'Fira Code', monospace; }
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

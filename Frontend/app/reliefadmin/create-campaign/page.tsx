@@ -22,54 +22,19 @@ type FormState = {
   createOnChain: boolean;
 };
 
-/* ================= AUTH HELPERS ================= */
-function getAccessToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("access_token");
-}
+/* ================= HELPERS ================= */
+const getAccessToken = () =>
+  typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
-function getUserRole() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("role"); // admin | user
-}
-
-/* ================= UI COMPONENTS ================= */
-function Spinner() {
-  return (
-    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-  );
-}
-
-function Field({
-  label,
-  hint,
-  error,
-  required,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-white">
-        {label} {required && "*"}
-      </label>
-      {hint && <div className="text-xs text-gray-300">{hint}</div>}
-      {children}
-      {error && <div className="text-xs text-red-400">{error}</div>}
-    </div>
-  );
-}
+const getUserRole = () =>
+  typeof window !== "undefined" ? localStorage.getItem("role") : null;
 
 /* ================= PAGE ================= */
 export default function CreateCampaignPage() {
   const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
 
-  /* ====== AUTH GUARD ====== */
+  /* ---------- AUTH ---------- */
   useEffect(() => {
     const token = getAccessToken();
     const role = getUserRole();
@@ -80,12 +45,15 @@ export default function CreateCampaignPage() {
     }
 
     if (role !== "admin") {
-      alert("Bạn không có quyền tạo campaign");
+      alert("Chỉ admin mới được tạo campaign");
       router.replace("/");
+      return;
     }
+
+    setAuthorized(true);
   }, [router]);
 
-  /* ====== STATE ====== */
+  /* ---------- STATE ---------- */
   const [form, setForm] = useState<FormState>({
     title: "",
     short_desc: "",
@@ -102,7 +70,7 @@ export default function CreateCampaignPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  /* ====== VALIDATION ====== */
+  /* ---------- VALIDATION ---------- */
   const isImageUrlValid = useMemo(() => {
     if (!form.image_url.trim()) return true;
     try {
@@ -114,15 +82,15 @@ export default function CreateCampaignPage() {
   }, [form.image_url]);
 
   const validate = () => {
-    if (!form.title.trim()) return "Tiêu đề không được để trống";
-    if (!form.short_desc.trim()) return "Mô tả ngắn không được để trống";
-    if (!form.description.trim()) return "Mô tả chi tiết không được để trống";
+    if (!form.title.trim()) return "Thiếu tiêu đề";
+    if (!form.short_desc.trim()) return "Thiếu mô tả ngắn";
+    if (!form.description.trim()) return "Thiếu mô tả chi tiết";
 
-    const amount = parseFloat(form.target_amount);
-    if (!(amount > 0)) return "Target phải lớn hơn 0";
+    const amount = Number(form.target_amount);
+    if (!(amount > 0)) return "Số tiền không hợp lệ";
 
     if (!/^0x[a-fA-F0-9]{40}$/.test(form.beneficiary))
-      return "Beneficiary không hợp lệ";
+      return "Ví nhận không hợp lệ";
 
     if (form.deadline && isNaN(Date.parse(form.deadline)))
       return "Deadline không hợp lệ";
@@ -132,121 +100,144 @@ export default function CreateCampaignPage() {
     return null;
   };
 
-  const canSubmit = !loading && validate() === null;
-
-  /* ====== HANDLERS ====== */
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
-
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
+  /* ---------- SUBMIT ---------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
 
-    const v = validate();
-    if (v) {
-      setError(v);
+    const role = getUserRole();
+    if (role !== "admin") {
+      setError("Bạn không có quyền tạo campaign");
       return;
     }
 
-    const token = getAccessToken();
-    if (!token) {
-      router.replace("/login");
+    const err = validate();
+    if (err) {
+      setError(err);
       return;
     }
 
     setLoading(true);
-
     try {
-      const payload = {
-        title: form.title.trim(),
-        short_desc: form.short_desc.trim(),
-        description: form.description.trim(),
-        image_url: form.image_url.trim(),
-        target_amount: parseFloat(form.target_amount),
-        currency: form.currency,
-        beneficiary: form.beneficiary.trim(),
-        deadline: new Date(form.deadline).toISOString(),
-        createOnChain: form.createOnChain,
-      };
-
       const res = await fetch(`${API_URL}/api/v1/campaigns/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getAccessToken()}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...form,
+          target_amount: Number(form.target_amount),
+          deadline: new Date(form.deadline).toISOString(),
+        }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data?.detail || "Tạo campaign thất bại");
-      }
+      if (!res.ok) throw new Error("Tạo campaign thất bại");
 
       setSuccess(true);
-      setTimeout(() => router.push("/reliefadmin/dashboard"), 2500);
-    } catch (err: any) {
-      setError(err.message || "Có lỗi xảy ra");
+      setTimeout(() => router.push("/reliefadmin/dashboard"), 1500);
+    } catch (e: any) {
+      setError(e.message || "Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ====== UI ====== */
+  /* ---------- GUARD ---------- */
+  if (!authorized) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        Đang kiểm tra quyền truy cập...
+      </div>
+    );
+  }
+
+  /* ================= UI ================= */
   return (
-    <div className="min-h-screen bg-black text-white p-10 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Tạo Campaign</h1>
+    <div className="min-h-screen bg-black text-white p-10 max-w-7xl mx-auto">
+      <h1 className="text-2xl font-bold mb-8">Tạo Campaign</h1>
 
-      {error && <div className="mb-4 text-red-400">{error}</div>}
-      {success && <div className="mb-4 text-green-400">Tạo thành công!</div>}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Input label="Tiêu đề" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
+          <Input label="Mô tả ngắn" value={form.short_desc} onChange={(v) => setForm({ ...form, short_desc: v })} />
+          <Textarea label="Mô tả chi tiết" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
+          <Input label="Image URL" value={form.image_url} onChange={(v) => setForm({ ...form, image_url: v })} />
+          <Input label="Target (ETH)" value={form.target_amount} onChange={(v) => setForm({ ...form, target_amount: v })} />
+          <Input label="Beneficiary" value={form.beneficiary} onChange={(v) => setForm({ ...form, beneficiary: v })} />
+          <Input type="date" label="Deadline" value={form.deadline} onChange={(v) => setForm({ ...form, deadline: v })} />
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <Field label="Tiêu đề" required>
-          <input name="title" className="input" value={form.title} onChange={handleChange} />
-        </Field>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.createOnChain}
+              onChange={(e) =>
+                setForm({ ...form, createOnChain: e.target.checked })
+              }
+            />
+            Tạo campaign on-chain
+          </label>
 
-        <Field label="Mô tả ngắn" required>
-          <input name="short_desc" className="input" value={form.short_desc} onChange={handleChange} />
-        </Field>
+          {error && <p className="text-red-400">{error}</p>}
+          {success && <p className="text-green-400">Tạo thành công!</p>}
 
-        <Field label="Mô tả chi tiết" required>
-          <textarea name="description" className="textarea" value={form.description} onChange={handleChange} />
-        </Field>
+          <button
+            disabled={loading}
+            className="w-full rounded-xl bg-indigo-600 py-3 font-semibold hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {loading ? "Đang tạo..." : "Tạo Campaign"}
+          </button>
+        </form>
 
-        <Field label="Mục tiêu (ETH)" required>
-          <input name="target_amount" className="input" value={form.target_amount} onChange={handleChange} />
-        </Field>
+        <div className="rounded-xl border border-white/10 p-6 bg-white/5">
+          <h3 className="font-semibold mb-3">Preview</h3>
+          <div className="aspect-video bg-gray-800 rounded mb-4 overflow-hidden">
+            {form.image_url && isImageUrlValid ? (
+              <img
+                src={form.image_url}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                Chưa có ảnh
+              </div>
+            )}
+          </div>
+          <h4 className="font-semibold">{form.title || "Tiêu đề"}</h4>
+          <p className="text-sm text-gray-300 mt-1">
+            {form.short_desc || "Mô tả ngắn"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        <Field label="Beneficiary" required>
-          <input name="beneficiary" className="input" value={form.beneficiary} onChange={handleChange} />
-        </Field>
+/* ================= COMPONENTS ================= */
+function Input({ label, value, onChange, type = "text" }: any) {
+  return (
+    <div>
+      <label className="block text-sm mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
+      />
+    </div>
+  );
+}
 
-        <Field label="Deadline" required>
-          <input type="date" name="deadline" className="input" value={form.deadline} onChange={handleChange} />
-        </Field>
-
-        <label className="flex items-center gap-2">
-          <input type="checkbox" name="createOnChain" checked={form.createOnChain} onChange={handleChange} />
-          Tạo on-chain
-        </label>
-
-        <button
-          disabled={!canSubmit}
-          className="w-full py-3 rounded bg-indigo-600 disabled:bg-gray-600"
-        >
-          {loading ? <Spinner /> : "Tạo Campaign"}
-        </button>
-      </form>
+function Textarea({ label, value, onChange }: any) {
+  return (
+    <div>
+      <label className="block text-sm mb-1">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
+      />
     </div>
   );
 }
