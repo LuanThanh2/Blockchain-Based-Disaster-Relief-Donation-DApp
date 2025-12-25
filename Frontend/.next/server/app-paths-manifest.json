@@ -1,7 +1,0 @@
-{
-  "/reliefs/page": "app/reliefs/page.js",
-  "/login/page": "app/login/page.js",
-  "/reliefadmin/page": "app/reliefadmin/page.js",
-  "/reliefadmin/create-campaign/page": "app/reliefadmin/create-campaign/page.js",
-  "/reliefadmin/dashboard/page": "app/reliefadmin/dashboard/page.js"
-}
