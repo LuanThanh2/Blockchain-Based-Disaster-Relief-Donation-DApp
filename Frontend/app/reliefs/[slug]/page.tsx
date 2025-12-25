@@ -49,6 +49,7 @@ export default function CampaignDetailPage() {
       >
         Donate Now
       </Link>
+      </div>
     </div>
   );
 }

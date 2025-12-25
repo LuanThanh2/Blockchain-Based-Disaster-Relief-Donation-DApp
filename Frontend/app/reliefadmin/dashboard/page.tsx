@@ -208,10 +208,18 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-          <p className="mt-4 text-gray-600">Đang tải campaigns...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 flex items-center justify-center">
+        <div className="text-center fade-in">
+          <div className="inline-block h-16 w-16 animate-spin rounded-full border-4 border-white/20 border-t-white mb-6" />
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-white">Đang tải dữ liệu...</h2>
+            <p className="text-gray-300">Vui lòng đợi trong giây lát</p>
+            <div className="flex justify-center mt-4">
+              <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse" style={{width: '60%'}} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -222,16 +230,16 @@ export default function DashboardPage() {
   const activeCampaigns = campaigns.filter(c => c.status === "active").length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        
+
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-4 fade-in">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold gradient-text mb-2">
               🏠 Admin Dashboard
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-300">
               Quản lý các chiến dịch cứu trợ trên blockchain
             </p>
           </div>
@@ -241,7 +249,7 @@ export default function DashboardPage() {
               onClick={() => {
                 window.open(`${API_URL}/api/v1/campaigns/export/all?format=csv`, '_blank');
               }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 shadow-sm transition flex items-center gap-2"
+              className="btn bg-white/10 hover:bg-white/20 text-white"
             >
               📊 Export CSV
             </button>
@@ -249,13 +257,13 @@ export default function DashboardPage() {
               onClick={() => {
                 window.open(`${API_URL}/api/v1/campaigns/export/all?format=json`, '_blank');
               }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 shadow-sm transition flex items-center gap-2"
+              className="btn bg-white/10 hover:bg-white/20 text-white"
             >
               📄 Export JSON
             </button>
             <button
               onClick={() => router.push("/reliefadmin/create-campaign")}
-              className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 shadow-sm transition"
+              className="btn btn-success"
             >
               ➕ Tạo Campaign Mới
             </button>
@@ -263,40 +271,50 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Overview - KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <DashboardStatCard
-            icon="📊"
-            label="Tổng Campaigns"
-            value={campaigns.length}
-            color="blue"
-          />
-          <DashboardStatCard
-            icon="✅"
-            label="Đang hoạt động"
-            value={activeCampaigns}
-            color="green"
-          />
-          <DashboardStatCard
-            icon="💰"
-            label="Tổng quyên góp"
-            value={`${totalRaised.toFixed(2)} ETH`}
-            color="purple"
-          />
-          <DashboardStatCard
-            icon="👥"
-            label="Tổng Donors"
-            value={totalDonors}
-            color="orange"
-          />
+        <div className="card p-6 mb-8 fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white">
+              📈 Thống kê tổng quan
+            </h2>
+            <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
+              {campaigns.length} campaigns
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <DashboardStatCard
+              icon="📊"
+              label="Tổng Campaigns"
+              value={campaigns.length}
+              color="blue"
+            />
+            <DashboardStatCard
+              icon="✅"
+              label="Đang hoạt động"
+              value={activeCampaigns}
+              color="green"
+            />
+            <DashboardStatCard
+              icon="💰"
+              label="Tổng quyên góp"
+              value={`${totalRaised.toFixed(2)} ETH`}
+              color="purple"
+            />
+            <DashboardStatCard
+              icon="👥"
+              label="Tổng Donors"
+              value={totalDonors}
+              color="orange"
+            />
+          </div>
         </div>
 
         {/* Campaigns List */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="card p-6 fade-in">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-white">
               📋 Danh sách Campaigns
             </h2>
-            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+            <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
               {campaigns.length} campaigns
             </span>
           </div>
@@ -345,8 +363,8 @@ export default function DashboardPage() {
 
       {/* Withdraw History Modal */}
       {showWithdrawModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowWithdrawModal(false);
@@ -355,10 +373,10 @@ export default function DashboardPage() {
             }
           }}
         >
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="glass rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-semibold text-white">
                 📜 Lịch sử rút tiền
               </h2>
               <button
@@ -367,7 +385,7 @@ export default function DashboardPage() {
                   setSelectedCampaignId(null);
                   setWithdraws([]);
                 }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center"
+                className="text-gray-400 hover:text-white text-2xl font-bold w-8 h-8 flex items-center justify-center transition"
               >
                 ×
               </button>
@@ -376,21 +394,23 @@ export default function DashboardPage() {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               {loadingWithdraws ? (
-                <div className="text-center py-12">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-                  <p className="mt-4 text-gray-600">Đang tải lịch sử...</p>
+                <div className="text-center py-16 fade-in">
+                  <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-white mb-4" />
+                  <h4 className="text-lg font-semibold text-white mb-2">Đang tải lịch sử...</h4>
+                  <p className="text-gray-300">Vui lòng đợi trong giây lát</p>
                 </div>
               ) : withdraws.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-5xl mb-4">📭</div>
-                  <p className="text-gray-600 text-lg">Chưa có giao dịch rút tiền nào</p>
+                <div className="text-center py-16 fade-in">
+                  <div className="text-6xl mb-4 animate-pulse">💰</div>
+                  <h4 className="text-xl font-semibold text-white mb-2">Chưa có giao dịch rút tiền nào</h4>
+                  <p className="text-gray-300">Các giao dịch rút tiền sẽ hiển thị ở đây</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {withdraws.map((withdraw: any, idx: number) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between p-4 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition"
+                      className="flex items-center justify-between p-4 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition"
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
@@ -398,11 +418,11 @@ export default function DashboardPage() {
                             💰
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">
+                            <p className="font-semibold text-white">
                               Rút {withdraw.amount_eth?.toFixed(4) || "0.0000"} ETH
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {withdraw.timestamp 
+                            <p className="text-xs text-gray-400 mt-1">
+                              {withdraw.timestamp
                                 ? new Date(withdraw.timestamp * 1000).toLocaleString("vi-VN", {
                                     day: "2-digit",
                                     month: "2-digit",
@@ -414,7 +434,7 @@ export default function DashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500 font-mono ml-[52px]">
+                        <p className="text-xs text-gray-400 font-mono ml-[52px]">
                           {withdraw.owner ? `${withdraw.owner.slice(0, 10)}...${withdraw.owner.slice(-8)}` : "N/A"}
                         </p>
                       </div>
@@ -423,7 +443,7 @@ export default function DashboardPage() {
                           href={`https://sepolia.etherscan.io/tx/${withdraw.tx_hash || ""}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition"
+                          className="btn btn-primary text-xs"
                         >
                           Etherscan →
                         </a>

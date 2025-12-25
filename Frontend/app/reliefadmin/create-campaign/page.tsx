@@ -45,13 +45,17 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-white">
-        {label} {required && "*"}
-      </label>
-      {hint && <div className="text-xs text-gray-300">{hint}</div>}
-      {children}
-      {error && <div className="text-xs text-red-400">{error}</div>}
+    <div className="grid grid-cols-12 gap-4 items-start">
+      <div className="col-span-3">
+        <label className="text-sm font-medium text-white">
+          {label} {required && "*"}
+        </label>
+        {hint && <div className="text-xs text-gray-300 mt-1">{hint}</div>}
+      </div>
+      <div className="col-span-9">
+        {children}
+        {error && <div className="text-xs text-red-400 mt-1">{error}</div>}
+      </div>
     </div>
   );
 }
@@ -243,33 +247,33 @@ export default function CreateCampaignPage() {
             {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
             {success && <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">✅ Tạo campaign thành công</div>}
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-6">
               <Field label="Tiêu đề" hint="Ngắn gọn, rõ ràng." required>
                 <input name="title" value={form.title} onChange={handleChange} className="input" placeholder="Ví dụ: Hỗ trợ đồng bào vùng lũ" aria-label="Tiêu đề"/>
-              </Field>
-
-              <Field label="Mục tiêu (ETH)" hint="Số tiền cần gây quỹ." required>
-                <input name="target_amount" value={form.target_amount} onChange={handleChange} className="input" placeholder="Ví dụ: 1.5" inputMode="decimal" aria-label="Mục tiêu (ETH)"/>
               </Field>
 
               <Field label="Mô tả ngắn" hint="1–2 câu tóm tắt để hiển thị ở danh sách." required>
                 <input name="short_desc" value={form.short_desc} onChange={handleChange} className="input" placeholder="Ví dụ: Gây quỹ khẩn cấp cho nhu yếu phẩm" aria-label="Mô tả ngắn"/>
               </Field>
 
-              <Field label="Deadline" hint="Ngày kết thúc (YYYY-MM-DD)." required>
-                <input name="deadline" type="date" value={form.deadline} onChange={handleChange} className="input" aria-label="Deadline"/>
-              </Field>
-
               <Field label="Mô tả chi tiết" hint="Nêu rõ mục tiêu, phạm vi hỗ trợ, cách sử dụng quỹ." required>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={6} className="textarea" aria-label="Mô tả chi tiết"/>
+                <textarea name="description" value={form.description} onChange={handleChange} rows={4} className="textarea" aria-label="Mô tả chi tiết"/>
               </Field>
 
               <Field label="Ảnh cover (URL)" error={!isImageUrlValid ? "URL không hợp lệ" : undefined}>
                 <input name="image_url" value={form.image_url} onChange={handleChange} placeholder="https://..." className="input" aria-label="Ảnh cover (URL)"/>
               </Field>
 
+              <Field label="Mục tiêu (ETH)" hint="Số tiền cần gây quỹ." required>
+                <input name="target_amount" value={form.target_amount} onChange={handleChange} className="input" placeholder="Ví dụ: 1.5" inputMode="decimal" aria-label="Mục tiêu (ETH)"/>
+              </Field>
+
               <Field label="Beneficiary (ví nhận)" hint="Địa chỉ 0x... (40 hex)." required>
                 <input name="beneficiary" value={form.beneficiary} onChange={handleChange} placeholder="0x..." className="input font-mono" aria-label="Beneficiary (ví nhận)"/>
+              </Field>
+
+              <Field label="Deadline" hint="Ngày kết thúc (YYYY-MM-DD)." required>
+                <input name="deadline" type="date" value={form.deadline} onChange={handleChange} className="input" aria-label="Deadline"/>
               </Field>
             </div>
 

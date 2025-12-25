@@ -43,8 +43,9 @@ export default function DonatePage() {
   };
 
   return (
-    <div className="mx-auto max-w-xl p-6 bg-white/5 rounded-3xl backdrop-blur border border-white/10 shadow-lg">
-      <h1 className="text-2xl font-bold mb-4">🚀 Donate ETH</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-black to-slate-900 flex items-center justify-center p-4">
+      <div className="mx-auto max-w-xl p-6 bg-white/5 rounded-3xl backdrop-blur border border-white/10 shadow-lg">
+        <h1 className="text-2xl font-bold mb-4 text-white">🚀 Donate ETH</h1>
 
       <div className="space-y-4">
         <input
