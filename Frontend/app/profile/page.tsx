@@ -33,15 +33,7 @@ interface UserProfile {
   created_at: string | null;
 }
 
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on: (event: string, handler: (...args: any[]) => void) => void;
-      removeListener: (event: string, handler: (...args: any[]) => void) => void;
-    };
-  }
-}
+// Type definitions moved to types/ethereum.d.ts
 
 export default function ProfilePage() {
   const router = useRouter();

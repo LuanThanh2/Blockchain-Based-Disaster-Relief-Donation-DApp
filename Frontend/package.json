@@ -10,11 +10,14 @@
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
     "ethers": "^6.16.0",
-    "next": "^14.2.35",
+    "next": "^14.2.18",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/react": "19.2.7"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "^14.2.18"
   }
 }

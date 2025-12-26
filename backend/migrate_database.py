@@ -134,3 +134,6 @@ if __name__ == "__main__":
     print("💡 Tip: Nếu có lỗi, có thể xóa dev.db và để SQLModel tự tạo lại")
     print("=" * 50)
 
+
+
+

@@ -164,3 +164,6 @@ def send_otp_email(to_email: str, username: str, otp_code: str) -> bool:
         logger.exception(f"Failed to send OTP email to {to_email}: {e}")
         return False
 
+
+
+

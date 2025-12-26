@@ -6,11 +6,7 @@ import ProgressBar from "../../components/ProgressBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
+// Type definitions moved to types/ethereum.d.ts
 
 type Donation = {
   id: number;

@@ -22,11 +22,7 @@ type Campaign = {
   onchain_id: number;
 };
 
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
+// Type definitions moved to types/ethereum.d.ts
 
 export default function DonatePage() {
   const params = useParams();

@@ -7,14 +7,7 @@ import Link from "next/link";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const ETHERSCAN_BASE = "https://sepolia.etherscan.io/tx";
 
-// Type declaration for window.ethereum
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string }) => Promise<string[]>;
-    };
-  }
-}
+// Type definitions moved to types/ethereum.d.ts
 
 type Donation = {
   id: number;
@@ -144,7 +137,7 @@ export default function MyDonationsPage() {
       setDonations(data);
 
       // Fetch campaign details for each donation
-      const campaignIds = [...new Set(data.map((d: Donation) => d.campaign_id))];
+      const campaignIds: number[] = Array.from(new Set(data.map((d: Donation) => d.campaign_id)));
       const campaignMap: Record<number, Campaign> = {};
       
       for (const id of campaignIds) {
